@@ -1,8 +1,8 @@
 """
-kernel/scheduler/sjf.py — Shortest Job First (No Apropiativo).
+kernel/scheduler/sjf.py — Shortest Job First (No expropiativo).
 
 Elige el proceso con menor burst_time (tiempo de CPU estimado).
-No apropiativo: el proceso en CPU ejecuta hasta terminar o ir a WAITING.
+No expropiativo: el proceso en CPU ejecuta hasta terminar o ir a WAITING.
 Puede causar starvation de procesos largos (aging mitiga esto).
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from ..models.pcb import PCB
 
 class SJFScheduler(BaseScheduler):
     """
-    SJF — Shortest Job First (no apropiativo).
+    SJF — Shortest Job First (no expropiativo).
     Minimiza el tiempo promedio de espera si los burst_times son conocidos.
     En la realidad, el burst_time es estimado; aquí es exacto (simulación).
     """

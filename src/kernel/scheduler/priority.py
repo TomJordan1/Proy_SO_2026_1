@@ -7,7 +7,7 @@ Modos:
     Preemptivo (preemptive=True):
         Si llega un proceso con mayor prioridad, el actual es desalojado.
 
-    No apropiativo (preemptive=False):
+    No expropiativo (preemptive=False):
         El proceso actual ejecuta hasta terminar o I/O.
 
 Aging (anti-starvation):
@@ -24,7 +24,7 @@ from ..models.pcb import PCB, ProcessState
 
 class PriorityScheduler(BaseScheduler):
     """
-    Priority Scheduling (apropiativo o no) con Aging configurable.
+    Priority Scheduling (expropiativo o no) con Aging configurable.
     Prioridad: 0 = máxima urgencia, 9 = mínima urgencia.
     """
 

@@ -10,7 +10,7 @@ Flujo de cada tick (8 fases, req1.txt):
     3. SCHEDULER   — Aplicar aging y reglas propias de cada scheduler
     4. PROCESSES   — Mover NEW→READY, decrementar remaining_time
     5. CPU_EXECUTE — Ejecutar procesos en cada core (execute_tick)
-    6. PREEMPTION  — Verificar si schedulers apropiativos deben expulsar
+    6. PREEMPTION  — Verificar si schedulers expropiativos deben expulsar
     7. ASSIGN      — Asignar procesos a cores libres (dispatcher)
     8. METRICS     — Actualizar métricas globales
 
@@ -316,7 +316,7 @@ class SimulationEngine:
                 self._terminate_process(pcb, exit_code=0)
 
     def _phase_preemption(self) -> None:
-        """Verificar si schedulers apropiativos deben expulsar el proceso actual."""
+        """Verificar si schedulers expropiativos deben expulsar el proceso actual."""
         for core in self.cores:
             if not core.process or core.switch_overhead > 0:
                 continue

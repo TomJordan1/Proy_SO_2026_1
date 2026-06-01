@@ -1,5 +1,5 @@
 """
-kernel/scheduler/srtf.py — Shortest Remaining Time First (Apropiativo).
+kernel/scheduler/srtf.py — Shortest Remaining Time First (expropiativo).
 
 Versión apropiativa de SJF.
 En cada tick, compara el remaining_time del proceso en CPU con todos los
@@ -16,7 +16,7 @@ from ..models.pcb import PCB, ProcessState
 
 class SRTFScheduler(BaseScheduler):
     """
-    SRTF — Shortest Remaining Time First (apropiativo).
+    SRTF — Shortest Remaining Time First (expropiativo).
     Verifica en cada tick si un proceso más corto llegó a READY.
     """
 

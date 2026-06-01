@@ -15,7 +15,7 @@ Algoritmos implementados:
   1. FCFS (First Come First Served):
      ┌───────────────────────────────────────────────────────┐
      │ Cola: [P1, P2, P3, P4]                                │
-     │ CPU ejecuta P1 hasta que termine (no apropiativo)     │
+     │ CPU ejecuta P1 hasta que termine (no expropiativo)     │
      │ Luego P2, luego P3, etc.                             │
      └───────────────────────────────────────────────────────┘
      + Simple, predecible
@@ -115,7 +115,7 @@ class FCFSScheduler(BaseScheduler):
     FCFS: El proceso que llegó primero ejecuta primero.
 
     Características:
-      - NO apropiativo: una vez en CPU, ejecuta hasta terminar
+      - NO expropiativo: una vez en CPU, ejecuta hasta terminar
         (a menos que solicite I/O o ocurra un error)
       - Cola FIFO pura: popleft() es siempre O(1)
       - Simple de implementar y entender

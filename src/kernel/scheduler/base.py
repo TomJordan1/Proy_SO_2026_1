@@ -5,10 +5,10 @@ Patrón Strategy: cada algoritmo de planificación es una subclase
 de BaseScheduler. El engine solo conoce esta interfaz.
 
 Schedulers implementados:
-    FCFSScheduler     — First Come, First Served (no apropiativo)
-    SJFScheduler      — Shortest Job First (no apropiativo)
-    SRTFScheduler     — Shortest Remaining Time First (apropiativo)
-    PriorityScheduler — Prioridad (apropiativo y no apropiativo)
+    FCFSScheduler     — First Come, First Served (no expropiativo)
+    SJFScheduler      — Shortest Job First (no expropiativo)
+    SRTFScheduler     — Shortest Remaining Time First (expropiativo)
+    PriorityScheduler — Prioridad (expropiativo y no expropiativo)
     RoundRobinScheduler — Round Robin con quantum configurable
     MLFQScheduler     — Multilevel Feedback Queue (STUB — futura integración)
 
@@ -71,8 +71,8 @@ class BaseScheduler(ABC):
         """
         ¿Debe el proceso actual ser desalojado?
 
-        Llamado CADA TICK para schedulers apropiativos.
-        Por defecto retorna False (no apropiativo).
+        Llamado CADA TICK para schedulers expropiativos.
+        Por defecto retorna False (no expropiativo).
 
         Args:
             current     : PCB del proceso actualmente en CPU

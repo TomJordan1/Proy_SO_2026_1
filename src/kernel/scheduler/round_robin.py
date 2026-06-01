@@ -1,7 +1,7 @@
 """
 kernel/scheduler/round_robin.py — Round Robin con Quantum Configurable.
 
-Apropiativo. Cada proceso recibe exactamente `quantum` ticks de CPU.
+expropiativo. Cada proceso recibe exactamente `quantum` ticks de CPU.
 Al expirar el quantum, el proceso vuelve al final de la cola READY.
 
 Métricas interesantes de observar:
@@ -17,7 +17,7 @@ from ..models.pcb import PCB
 
 class RoundRobinScheduler(BaseScheduler):
     """
-    Round Robin — apropiativo con quantum de tiempo fijo.
+    Round Robin — expropiativo con quantum de tiempo fijo.
     El quantum se puede cambiar en caliente desde la UI.
     """
 

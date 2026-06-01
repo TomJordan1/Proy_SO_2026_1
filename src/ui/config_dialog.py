@@ -194,13 +194,13 @@ class ConfigDialog(QDialog):
         g.addWidget(self.spin_ctx_cost, 3, 1)
         g.addWidget(_lbl("0 = instantáneo. Mayor costo → más overhead → menor throughput", Colors.TEXT_MUTED, 8), 3, 2)
 
-        self.chk_preemptive = QCheckBox("Modo apropiativo (permite expulsar procesos en CPU)")
+        self.chk_preemptive = QCheckBox("Modo expropiativo (permite expulsar procesos en CPU)")
         self.chk_preemptive.setChecked(True)
         g.addWidget(self.chk_preemptive, 4, 0, 1, 3)
 
         g.addWidget(_hint(
             "FCFS: simple, no preemptivo. SJF: óptimo si se conocen los bursts. "
-            "SRTF: apropiativo, mínimo waiting. Priority: con aging anti-starvation. "
+            "SRTF: expropiativo, mínimo waiting. Priority: con aging anti-starvation. "
             "RR: más justo, configura el quantum. MLFQ: (beta) degradación dinámica."
         ), 5, 0, 1, 3)
 

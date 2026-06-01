@@ -1,7 +1,7 @@
 """
 kernel/scheduler/fcfs.py — First Come, First Served.
 
-No apropiativo. Orden estricto de llegada.
+No expropiativo. Orden estricto de llegada.
 El proceso que llega primero, ejecuta hasta completar su burst (o I/O).
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from ..models.pcb import PCB
 class FCFSScheduler(BaseScheduler):
     """
     FCFS — First Come, First Served.
-    No apropiativo. Sin starvation de procesos cortos... ¡pero convoy effect!
+    No expropiativo. Sin starvation de procesos cortos... ¡pero convoy effect!
     """
 
     def add_process(self, pcb: PCB) -> None:
