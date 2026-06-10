@@ -1,5 +1,5 @@
 """
-ui/styles.py — Sistema de diseño visual de PatatOS .
+ui/styles.py — Sistema de diseño visual de PatatOS.
 
 Tema oscuro premium con paleta de colores coherente.
 Los colores se exportan como constantes para uso en widgets.
