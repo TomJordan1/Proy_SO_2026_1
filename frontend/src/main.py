@@ -1,5 +1,5 @@
 """
-main.py — Punto de entrada de PatatOS.
+main.py — Punto de entrada de PatatOS v2.
 
 Flujo:
     1. QApplication
@@ -20,11 +20,9 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 from PySide6.QtGui import QFont
 
-from simulation.config import HardwareConfig
-from simulation.engine import SimulationEngine, build_scheduler
 from simulation.clock import SimClock
 from ui.config_dialog import ConfigDialog
 from ui.main_window import MainWindow
@@ -42,27 +40,28 @@ def main():
     if dlg.exec() != QDialog.DialogCode.Accepted:
         sys.exit(0)
 
-    config, manual_procs = dlg.get_config()
-
-    # ── Engine ────────────────────────────────────────────────────────────────
-    # Suprimir warning de MLFQ si está seleccionado
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        engine = SimulationEngine(config)
-
-    # Crear procesos manuales si aplica
-    for pd in manual_procs:
-        engine.create_process(
-            name=pd.get("name"),
-            burst_time=pd.get("burst_time", 20),
-            priority=pd.get("priority", 5),
-            memory_size=pd.get("memory_size", 32),
-            process_type=pd.get("process_type", "CPU_BOUND"),
-        )
+    # El diálogo ha creado "escenario_modelo.json" y fingió ejecutar C++.
+    # Ahora deberíamos tener "output_modelo.json".
+    output_file = "output_modelo.json"
+    if not os.path.exists(output_file):
+        QMessageBox.critical(None, "Error", f"No se encontró el archivo {output_file} generado por el backend.")
+        sys.exit(1)
 
     # ── Clock + Ventana ───────────────────────────────────────────────────────
-    clock = SimClock(speed_ms=config.sim_speed_ms)
-    window = MainWindow(engine, clock)
+    # We don't have engine config anymore, let's read sim speed from json or default
+    import json
+    speed_ms = 800
+    try:
+        with open(output_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if "ticks" in data and len(data["ticks"]) > 0:
+                # Fallback speed, or we can read from escenario_modelo.json
+                pass
+    except:
+        pass
+
+    clock = SimClock(speed_ms=speed_ms)
+    window = MainWindow(output_file, clock)
     window.show()
 
     sys.exit(app.exec())

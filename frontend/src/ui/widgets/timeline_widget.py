@@ -18,8 +18,21 @@ class TimelineDrawWidget(QWidget):
         self.setMinimumWidth(800)
         self.setMinimumHeight(130)
 
-    def update_timeline(self, timeline: List[Tuple[int, Optional[int], str, str, str]], num_cores: int):
-        self.timeline = timeline
+    def update_timeline(self, timeline, num_cores: int):
+        # Normalise: accept list-of-dicts or list-of-tuples
+        normalised = []
+        for entry in timeline:
+            if isinstance(entry, dict):
+                normalised.append((
+                    entry.get("tick", 0),
+                    entry.get("core_id"),
+                    entry.get("label", ""),
+                    entry.get("from_state", ""),
+                    entry.get("to_state", ""),
+                ))
+            else:
+                normalised.append(tuple(entry))
+        self.timeline = normalised
         self.num_cores = max(1, num_cores)
         # Calculate width needed
         if self.timeline:

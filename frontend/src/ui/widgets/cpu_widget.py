@@ -205,10 +205,13 @@ class _CorePanel(QGroupBox):
         comp = float(proc.get("completion") or 0)
         self._comp_bar.setValue(int(comp))
 
-        # Quantum bar (only shown in RR)
+        # Quantum bar (only shown in RR/MLFQ)
+        scheduler = str(snapshot.get("scheduler", "")).upper()
+        is_rr = "RR" in scheduler or "ROUND" in scheduler or "MLFQ" in scheduler
+        
         q_used  = proc.get("quantum_used")
-        q_rem = proc.get("quantum_rem")
-        if q_used is not None and q_rem is not None:
+        q_rem = proc.get("quantum_rem") or proc.get("quantum_remaining")
+        if is_rr and q_used is not None and q_rem is not None:
             q_total = q_used + q_rem
             if q_total > 0:
                 self._quantum_row.setVisible(True)

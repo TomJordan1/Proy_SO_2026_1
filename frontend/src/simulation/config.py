@@ -1,15 +1,15 @@
 """
 simulation/config.py — Configuración de Hardware del Sistema Simulado.
 
-HardwareConfig es el contrato central que conecta el diálogo de configuración
-con el SimulationEngine. Cada parámetro afecta REALMENTE el comportamiento
-de la simulación (req2.txt).
+HardwareConfig es el modelo central para el diálogo de configuración.
+Esta estructura se serializa en `escenario_modelo.json` para que el 
+futuro Motor de Simulación (Backend en C++) lo lea y aplique las reglas físicas.
 
 Diseño:
     - Un único dataclass con todos los parámetros del hardware
-    - Se crea en ConfigDialog y se pasa al SimulationEngine
-    - El engine lo distribuye a cada subsistema
-    - Los cambios en runtime se propagan a través del engine
+    - Se crea y configura en la Interfaz Gráfica (ConfigDialog)
+    - Al aceptar o modificar, se exporta al JSON.
+    - El backend C++ consumirá este archivo para calcular `output_modelo.json`.
 
 Impacto real de parámetros (req2.txt):
     - num_cpus      → más throughput, más context switches
@@ -124,6 +124,14 @@ class HardwareConfig:
     # ── Procesos ──────────────────────────────────────────────────────────────
     auto_create: bool = True
     """Si el sistema crea procesos automáticamente durante la simulación."""
+
+    max_ticks: int = 0
+    """
+    Límite de ticks para la simulación (0 = sin límite).
+    Cuando auto_create=True y este valor > 0, el engine deja de crear
+    nuevos procesos al alcanzar este tick, permitiendo que la simulación
+    termine naturalmente cuando todos los procesos existentes finalicen.
+    """
 
     initial_processes: int = 10
     """Número de procesos a cargar al inicio (0 si es modo manual)."""

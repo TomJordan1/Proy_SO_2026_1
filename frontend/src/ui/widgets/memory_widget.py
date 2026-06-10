@@ -50,28 +50,49 @@ _SEG_COLORS: dict[str, str] = {
 
 def _seg_color(seg: Any) -> QColor:
     if isinstance(seg, dict):
-        seg_type = str(seg.get("type", "")).lower()
-        pid = seg.get("pid")
+        seg_type = str(seg.get("segment_type") or seg.get("type") or "").lower()
+        pid = seg.get("process_id") or seg.get("pid")
+        is_free = seg.get("is_free", pid is None)
     else:
         st = getattr(seg, "segment_type", "")
         seg_type = str(st).split('.')[-1].lower() if st else ""
         pid = getattr(seg, "process_id", None)
+        is_free = getattr(seg, "is_free", True)
 
     if seg_type == "os":
         return QColor(Colors.MEM_OS)
-    if seg_type == "free" or pid is None:
+    if is_free or seg_type == "free" or pid is None:
         return QColor(Colors.MEM_FREE)
-    
+
+    # Process segments — use type-specific colors
+    color_map = {
+        "text":  Colors.MEM_TEXT,
+        "data":  Colors.MEM_DATA,
+        "heap":  Colors.MEM_HEAP,
+        "stack": Colors.MEM_STACK,
+    }
+    if seg_type in color_map:
+        return QColor(color_map[seg_type])
+
+    # Unknown process segment — fall back to pid color
     return QColor(pid_color(int(pid)))
+
 
 def _seg_size(seg: Any) -> float:
     if isinstance(seg, dict):
-        return float(seg.get("size_kb") or seg.get("size") or 0)
+        return float(seg.get("size") or seg.get("size_kb") or 0)
     return float(getattr(seg, "size", 0))
 
 def _seg_label(seg: Any) -> str:
     if isinstance(seg, dict):
-        return str(seg.get("label") or seg.get("name") or seg.get("type") or "?")
+        lbl = seg.get("label") or seg.get("name")
+        if lbl: return str(lbl)
+        stype = str(seg.get("segment_type") or seg.get("type") or "?").split('.')[-1]
+        pid = seg.get("process_id") or seg.get("pid")
+        if pid is not None:
+            return f"P{pid} [{stype}]"
+        return stype
+
     pid = getattr(seg, "process_id", None)
     st = getattr(seg, "segment_type", "")
     stype = str(st).split('.')[-1] if st else "?"
@@ -100,9 +121,9 @@ class _MemoryBar(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setFixedHeight(self.TOTAL_H)
 
-    def set_segments(self, segments: list[dict], total_kb: float) -> None:
+    def set_segments(self, segments: list, total_mb: int) -> None:
         self._segments = segments
-        self._total_kb = max(total_kb, 1.0)
+        self._total_mb = max(total_mb, 1)
         self.update()
 
     # ── Mouse hover ───────────────────────────────────────────────────────────
@@ -126,7 +147,7 @@ class _MemoryBar(QWidget):
         offset = 0.0
         for seg in self._segments:
             size = _seg_size(seg)
-            frac = size / self._total_kb
+            frac = size / self._total_mb
             seg_w = frac * total_w
             if offset <= x < offset + seg_w:
                 return seg
@@ -151,7 +172,7 @@ class _MemoryBar(QWidget):
         offset = 0
         for seg in self._segments:
             size = _seg_size(seg)
-            frac = size / self._total_kb
+            frac = size / self._total_mb
             seg_w = max(int(frac * w), 1)
             color = _seg_color(seg)
             # Highlight hovered segment

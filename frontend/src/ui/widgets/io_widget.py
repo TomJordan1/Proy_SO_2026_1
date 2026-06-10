@@ -35,13 +35,15 @@ class IOStatusWidget(QWidget):
         # Create rows if not exist
         if not self._device_rows:
             for dev in devices:
-                row = _DeviceRow(dev["name"])
-                self._device_rows[dev["name"]] = row
+                name = dev.get("name") or dev.get("device_name", "?")
+                row = _DeviceRow(name)
+                self._device_rows[name] = row
                 self.container.addWidget(row)
 
         for dev in devices:
-            if dev["name"] in self._device_rows:
-                self._device_rows[dev["name"]].update_status(dev)
+            name = dev.get("name") or dev.get("device_name", "?")
+            if name in self._device_rows:
+                self._device_rows[name].update_status(dev)
 
 class _DeviceRow(QFrame):
     def __init__(self, name: str, parent=None):
@@ -118,12 +120,23 @@ class _DeviceRow(QFrame):
             """)
 
     def update_status(self, dev: Dict[str, Any]):
-        self._set_badge(dev["is_busy"])
-        self.lbl_queue.setText(f"Q: {dev['queue_length']}")
-        
-        if dev["is_busy"]:
-            self.lbl_current.setText(f"P{dev['current_pid']} ({dev['current_name']})")
-            self.progress.setValue(int(dev["progress"]))
+        # Support both boolean 'is_busy' and string 'status' key
+        if "is_busy" in dev:
+            is_busy = bool(dev["is_busy"])
+        else:
+            is_busy = str(dev.get("status", "IDLE")).upper() == "BUSY"
+
+        self._set_badge(is_busy)
+        self.lbl_queue.setText(f"Q: {dev.get('queue_length', 0)}")
+
+        # Progress: support both 'progress' and 'progress_percent' keys
+        progress = dev.get("progress_percent") or dev.get("progress") or 0
+
+        if is_busy:
+            pid  = dev.get("current_pid", "?")
+            name = dev.get("current_name", "")
+            self.lbl_current.setText(f"P{pid} ({name})" if name else f"PID {pid}")
+            self.progress.setValue(int(progress))
         else:
             self.lbl_current.setText("—")
             self.progress.setValue(0)

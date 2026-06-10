@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from simulation.config import HardwareConfig
 from .styles import Colors, get_main_stylesheet
+import time
 
 
 def _lbl(text: str, color: str = Colors.TEXT_SEC, size: int = 9) -> QLabel:
@@ -54,31 +55,27 @@ class ManualProcessRow(QWidget):
         self.name_edit.setFixedWidth(110)
         layout.addWidget(self.name_edit)
 
-        layout.addWidget(_lbl("Burst:"))
         self.burst = QSpinBox()
         self.burst.setRange(3, 100)
         self.burst.setValue(20)
-        self.burst.setFixedWidth(65)
+        self.burst.setFixedWidth(80)
         layout.addWidget(self.burst)
 
-        layout.addWidget(_lbl("Prior:"))
         self.priority = QSpinBox()
         self.priority.setRange(0, 9)
         self.priority.setValue(5)
-        self.priority.setFixedWidth(50)
+        self.priority.setFixedWidth(70)
         layout.addWidget(self.priority)
 
-        layout.addWidget(_lbl("Mem(MB):"))
         self.memory = QSpinBox()
         self.memory.setRange(4, 256)
         self.memory.setValue(32)
-        self.memory.setFixedWidth(65)
+        self.memory.setFixedWidth(80)
         layout.addWidget(self.memory)
 
-        layout.addWidget(_lbl("Tipo:"))
         self.ptype = QComboBox()
         self.ptype.addItems(["CPU_BOUND", "IO_BOUND", "INTERACTIVE", "SYSTEM"])
-        self.ptype.setFixedWidth(110)
+        self.ptype.setFixedWidth(120)
         layout.addWidget(self.ptype)
 
         layout.addStretch()
@@ -144,13 +141,17 @@ class ConfigDialog(QDialog):
         btn_defaults = QPushButton("↺  Valores por defecto")
         btn_defaults.clicked.connect(self._reset_defaults)
 
-        btn_start = QPushButton("▶  Iniciar Simulación")
+        btn_export = QPushButton("💾  Solo Exportar Escenario")
+        btn_export.clicked.connect(self._export_json_only)
+
+        btn_start = QPushButton("▶  Generar y Visualizar")
         btn_start.setObjectName("btn_start")
         btn_start.setFixedHeight(36)
-        btn_start.clicked.connect(self._on_accept)
+        btn_start.clicked.connect(self._generate_and_view)
 
         btn_row.addWidget(btn_cancel)
         btn_row.addWidget(btn_defaults)
+        btn_row.addWidget(btn_export)
         btn_row.addStretch()
         btn_row.addWidget(btn_start)
         root.addLayout(btn_row)
@@ -194,13 +195,13 @@ class ConfigDialog(QDialog):
         g.addWidget(self.spin_ctx_cost, 3, 1)
         g.addWidget(_lbl("0 = instantáneo. Mayor costo → más overhead → menor throughput", Colors.TEXT_MUTED, 8), 3, 2)
 
-        self.chk_preemptive = QCheckBox("Modo expropiativo (permite expulsar procesos en CPU)")
+        self.chk_preemptive = QCheckBox("Modo apropiativo (permite expulsar procesos en CPU)")
         self.chk_preemptive.setChecked(True)
         g.addWidget(self.chk_preemptive, 4, 0, 1, 3)
 
         g.addWidget(_hint(
             "FCFS: simple, no preemptivo. SJF: óptimo si se conocen los bursts. "
-            "SRTF: expropiativo, mínimo waiting. Priority: con aging anti-starvation. "
+            "SRTF: apropiativo, mínimo waiting. Priority: con aging anti-starvation. "
             "RR: más justo, configura el quantum. MLFQ: (beta) degradación dinámica."
         ), 5, 0, 1, 3)
 
@@ -215,7 +216,7 @@ class ConfigDialog(QDialog):
 
         g.addWidget(_lbl("Memoria total (MB):"), 0, 0)
         self.spin_mem = QSpinBox()
-        self.spin_mem.setRange(128, 8192)
+        self.spin_mem.setRange(128, 4096)
         self.spin_mem.setValue(1024)
         self.spin_mem.setSingleStep(128)
         self.spin_mem.setFixedWidth(90)
@@ -329,16 +330,21 @@ class ConfigDialog(QDialog):
         self.lbl_speed = _lbl("Normal (800 ms/tick)", Colors.ACCENT_LIGHT)
         g.addWidget(self.lbl_speed, 0, 2)
 
-        # Probabilidad de error
+        # Probabilidad de error — porcentaje entero
         g.addWidget(_lbl("Probabilidad de error:"), 1, 0)
+        err_row = QHBoxLayout()
         self.spin_error_prob = QDoubleSpinBox()
-        self.spin_error_prob.setRange(0.0, 0.5)
-        self.spin_error_prob.setValue(0.005)
-        self.spin_error_prob.setSingleStep(0.005)
-        self.spin_error_prob.setDecimals(3)
+        self.spin_error_prob.setRange(0.0, 50.0)
+        self.spin_error_prob.setValue(0.5)        # 0.5 % por defecto (≡ 0.005 decimal)
+        self.spin_error_prob.setSingleStep(0.5)
+        self.spin_error_prob.setDecimals(1)
         self.spin_error_prob.setFixedWidth(90)
-        g.addWidget(self.spin_error_prob, 1, 1)
-        g.addWidget(_lbl("(0.005 = 0.5% de procesos fallará)"), 1, 2)
+        self.spin_error_prob.setSuffix(" %")
+        err_w = QWidget()
+        err_w.setLayout(err_row)
+        err_row.addWidget(self.spin_error_prob)
+        g.addWidget(err_w, 1, 1)
+        g.addWidget(_lbl("% de procesos que terminarán con error fatal"), 1, 2)
 
         # Multiplicador I/O
         g.addWidget(_lbl("Multiplicador de frecuencia I/O:"), 2, 0)
@@ -365,16 +371,36 @@ class ConfigDialog(QDialog):
         g.addWidget(_lbl("Cada N ticks esperando, la prioridad sube 1"), 4, 2)
 
         # Auto-crear
-        self.chk_auto = QCheckBox("Auto-crear procesos durante la simulación (20% por tick)")
+        self.chk_auto = QCheckBox("Auto-crear procesos durante la simulación")
         self.chk_auto.setChecked(False)
         g.addWidget(self.chk_auto, 5, 0, 1, 3)
 
+        # Max ticks (only relevant when auto_create is on)
+        self.max_ticks_row = QWidget()
+        mt_layout = QHBoxLayout(self.max_ticks_row)
+        mt_layout.setContentsMargins(20, 0, 0, 0)
+        mt_layout.setSpacing(8)
+        mt_layout.addWidget(_lbl("  Detener creación en tick:"))
+        self.spin_max_ticks = QSpinBox()
+        self.spin_max_ticks.setRange(0, 10000)
+        self.spin_max_ticks.setValue(500)
+        self.spin_max_ticks.setFixedWidth(90)
+        self.spin_max_ticks.setSpecialValueText("Sin límite")
+        mt_layout.addWidget(self.spin_max_ticks)
+        mt_layout.addWidget(_lbl("  (0 = sin límite; la simulación acaba cuando terminan todos los procesos)",
+                                 Colors.TEXT_MUTED, 8))
+        mt_layout.addStretch()
+        g.addWidget(self.max_ticks_row, 6, 0, 1, 3)
+        self.max_ticks_row.setEnabled(False)
+        self.chk_auto.toggled.connect(self.max_ticks_row.setEnabled)
+
         g.addWidget(_hint(
             "El aging evita starvation: procesos que esperan mucho ganan prioridad. "
-            "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta."
-        ), 6, 0, 1, 3)
+            "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta. "
+            "Si auto-crear está activo, define un límite de ticks para que la simulación pueda terminar."
+        ), 7, 0, 1, 3)
 
-        g.setRowStretch(7, 1)
+        g.setRowStretch(8, 1)
         return w
 
     def _tab_processes(self) -> QWidget:
@@ -404,15 +430,15 @@ class ConfigDialog(QDialog):
         sys_layout.addWidget(_lbl("Cantidad de procesos:"))
         self.spin_proc_count = QSpinBox()
         self.spin_proc_count.setRange(1, 30)
-        self.spin_proc_count.setValue(10)
-        self.spin_proc_count.setFixedWidth(70)
+        self.spin_proc_count.setValue(20)
+        self.spin_proc_count.setFixedWidth(100)
         sys_layout.addWidget(self.spin_proc_count)
 
         sys_layout.addWidget(_lbl("  CPU-bound %:"))
         self.spin_cpu_ratio = QSpinBox()
         self.spin_cpu_ratio.setRange(0, 100)
         self.spin_cpu_ratio.setValue(40)
-        self.spin_cpu_ratio.setFixedWidth(60)
+        self.spin_cpu_ratio.setFixedWidth(100)
         sys_layout.addWidget(self.spin_cpu_ratio)
         sys_layout.addWidget(_lbl("  (resto: IO/INTERACTIVE/SYSTEM)"))
         sys_layout.addStretch()
@@ -425,7 +451,7 @@ class ConfigDialog(QDialog):
         man_layout.setSpacing(4)
 
         header_row = QHBoxLayout()
-        for label, width in [("Proceso", 120), ("Burst", 70), ("Prior.", 58), ("Mem (MB)", 72), ("Tipo", 118)]:
+        for label, width in [("Proceso", 140), ("Burst", 85), ("Prior.", 75), ("Mem (MB)", 85), ("Tipo", 125)]:
             lbl = _lbl(label, Colors.TEXT_SEC, 8)
             lbl.setFixedWidth(width)
             header_row.addWidget(lbl)
@@ -439,8 +465,7 @@ class ConfigDialog(QDialog):
         self.rows_layout = QVBoxLayout(self.rows_container)
         self.rows_layout.setSpacing(2)
         self.rows_layout.setContentsMargins(2, 2, 2, 2)
-        for i in range(1, 6):
-            self._add_row(i)
+        self._populate_default_manual_rows()
         self.rows_layout.addStretch()
         man_scroll.setWidget(self.rows_container)
         man_layout.addWidget(man_scroll)
@@ -485,13 +510,49 @@ class ConfigDialog(QDialog):
         labels = ["Lento (2000 ms)", "Normal (800 ms)", "Rápido (250 ms)", "Turbo (80 ms)"]
         self.lbl_speed.setText(labels[val])
 
+    # Default 20 manual process definitions
+    _DEFAULT_PROCS = [
+        ("Sistema",    10, 0, 16,  "SYSTEM"),
+        ("Kernel",      8, 0, 12,  "SYSTEM"),
+        ("svchost",    15, 1, 24,  "SYSTEM"),
+        ("Explorador", 30, 3, 48,  "INTERACTIVE"),
+        ("Navegador",  45, 2, 128, "INTERACTIVE"),
+        ("Editor",     25, 3, 64,  "CPU_BOUND"),
+        ("Compilador", 80, 4, 96,  "CPU_BOUND"),
+        ("Database",   20, 2, 80,  "IO_BOUND"),
+        ("Servidor",   60, 2, 64,  "IO_BOUND"),
+        ("Logger",     12, 5, 8,   "IO_BOUND"),
+        ("Antivirus",  40, 4, 32,  "CPU_BOUND"),
+        ("Backup",     90, 6, 48,  "IO_BOUND"),
+        ("Player",     35, 3, 96,  "INTERACTIVE"),
+        ("Terminal",   18, 2, 16,  "INTERACTIVE"),
+        ("Updater",    50, 7, 32,  "IO_BOUND"),
+        ("Scheduler",  10, 1, 8,   "SYSTEM"),
+        ("NetworkMgr", 22, 2, 24,  "IO_BOUND"),
+        ("UIServer",   28, 3, 40,  "INTERACTIVE"),
+        ("CryptoSvc",  55, 4, 32,  "CPU_BOUND"),
+        ("MemMgr",      8, 1, 12,  "SYSTEM"),
+    ]
+
+    def _populate_default_manual_rows(self):
+        """Pre-populate the manual list with 20 representative default processes."""
+        for i, (name, burst, prio, mem, ptype) in enumerate(self._DEFAULT_PROCS, start=1):
+            row = ManualProcessRow(i)
+            row.name_edit.setText(name)
+            row.burst.setValue(burst)
+            row.priority.setValue(prio)
+            row.memory.setValue(mem)
+            row.ptype.setCurrentText(ptype)
+            self._manual_rows.append(row)
+            self.rows_layout.insertWidget(self.rows_layout.count(), row)
+
     def _add_row(self, idx: int):
         row = ManualProcessRow(idx)
         self._manual_rows.append(row)
         self.rows_layout.insertWidget(self.rows_layout.count() - 1, row)
 
     def _add_proc_row(self):
-        if len(self._manual_rows) < 20:
+        if len(self._manual_rows) < 30:
             self._add_row(len(self._manual_rows) + 1)
 
     def _rem_proc_row(self):
@@ -518,14 +579,22 @@ class ConfigDialog(QDialog):
             }
             spin.setValue(defaults.get(attr, 10))
         self.slider_speed.setValue(1)
-        self.spin_error_prob.setValue(0.005)
+        self.spin_error_prob.setValue(0.5)   # 0.5 % = 0.005 decimal
         self.spin_io_mult.setValue(1.0)
         self.chk_aging.setChecked(True)
         self.spin_aging.setValue(20)
         self.chk_auto.setChecked(False)
-        self.spin_proc_count.setValue(10)
+        self.spin_max_ticks.setValue(500)
+        self.spin_proc_count.setValue(20)
         self.spin_cpu_ratio.setValue(40)
         self.radio_sys.setChecked(True)
+        # Re-populate manual rows with defaults
+        for row in self._manual_rows:
+            row.setParent(None)
+            row.deleteLater()
+        self._manual_rows.clear()
+        self._populate_default_manual_rows()
+        self.rows_layout.addStretch()
 
     def _on_accept(self):
         if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
@@ -570,13 +639,184 @@ class ConfigDialog(QDialog):
             usb_latency=self._dev_spins["usb_latency"].value(),
             # Simulación
             sim_speed_ms=speeds[self.slider_speed.value()],
-            error_probability=self.spin_error_prob.value(),
+            error_probability=self.spin_error_prob.value() / 100.0,  # UI en %, engine en decimal
             io_freq_multiplier=self.spin_io_mult.value(),
             aging_enabled=self.chk_aging.isChecked(),
             aging_interval=self.spin_aging.value(),
             auto_create=self.chk_auto.isChecked(),
+            max_ticks=self.spin_max_ticks.value() if self.chk_auto.isChecked() else 0,
             # Procesos
-            initial_processes=self.spin_proc_count.value() if self.radio_sys.isChecked() else 0,
+            initial_processes=self.spin_proc_count.value() if self.radio_sys.isChecked() else len(manual_procs),
             cpu_bound_ratio=self.spin_cpu_ratio.value() / 100.0,
             use_system_processes=self.radio_sys.isChecked(),
         ), manual_procs
+
+    def _get_psutil_processes(self, count: int) -> list:
+        """Read up to `count` real OS processes via psutil and return as dicts."""
+        try:
+            import psutil
+            procs = []
+            for p in psutil.process_iter(['pid', 'name', 'memory_info', 'nice']):
+                try:
+                    info = p.info
+                    if info['memory_info'] is None:
+                        continue
+                    rss_mb = max(4, min(256, info['memory_info'].rss // (1024 * 1024)))
+                    name = (info['name'] or 'proc')[:16]
+                    # Heuristic type
+                    nl = name.lower()
+                    if any(s in nl for s in ('system','kernel','svchost','winlogon','csrss','lsass','smss','wininit','services','registry')):
+                        ptype = 'SYSTEM'
+                    elif any(s in nl for s in ('chrome','firefox','edge','explorer','vlc','spotify','discord','word','excel')):
+                        ptype = 'IO_BOUND'
+                    elif any(s in nl for s in ('cmd','powershell','bash','terminal','code','notepad','python')):
+                        ptype = 'INTERACTIVE'
+                    else:
+                        ptype = 'CPU_BOUND'
+                    procs.append({
+                        'name': name,
+                        'burst_time': 20,
+                        'priority': 5,
+                        'memory_size': rss_mb,
+                        'process_type': ptype,
+                    })
+                    if len(procs) >= count:
+                        break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            return procs
+        except ImportError:
+            return []
+
+    def _build_scenario_json(self) -> dict:
+        import json
+        from datetime import datetime
+        config, manual_procs = self.get_config()
+
+        # Determine process list for export
+        if self.radio_sys.isChecked():
+            count = self.spin_proc_count.value()
+            proc_list = self._get_psutil_processes(count)
+            if not proc_list:
+                proc_list = [
+                    {"name": name, "burst_time": burst, "priority": prio,
+                     "memory_size": mem, "process_type": ptype}
+                    for name, burst, prio, mem, ptype in self._DEFAULT_PROCS[:count]
+                ]
+        else:
+            proc_list = manual_procs
+
+        # Force arrival_tick = 0 for initial processes
+        for p in proc_list:
+            if "arrival_tick" not in p:
+                p["arrival_tick"] = 0
+
+        now = datetime.now()
+        data = {
+            "metadata": {
+                "name":                    "Simulación OS Completa - Proyecto Final",
+                "executionDate":           now.strftime("%Y-%m-%d"),
+                "executionTime":           now.strftime("%H:%M:%S"),
+                "realTimeTrackingEnabled": False,
+                "availableAlgorithms":     ["FCFS", "SJF", "SRTF", "Priority", "RR", "MLFQ"],
+                "processSource":           "psutil" if self.radio_sys.isChecked() else "manual",
+            },
+
+            "hardware": {
+                "cpu": {
+                    "numCores":              config.num_cpus,
+                    "scheduler":             config.scheduler_algorithm,
+                    "preemptive":            config.preemptive,
+                    "quantum":               config.quantum_default,
+                    "contextSwitchCostTicks":config.context_switch_cost,
+                },
+                "memory": {
+                    "totalMB":              config.total_memory_mb,
+                    "osReservedMB":         64,
+                    "minSegmentMB":         config.min_segment_mb,
+                    "maxProcessMB":         config.max_process_mb,
+                    "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
+                    "mmuEnabled":           config.mmu_enabled,
+                },
+                "ioDevices": [
+                    {"id": "KEYBOARD", "latency": config.keyboard_latency},
+                    {"id": "DISK",     "latency": config.disk_latency},
+                    {"id": "PRINTER",  "latency": config.printer_latency},
+                    {"id": "NETWORK",  "latency": config.network_latency},
+                    {"id": "USB",      "latency": config.usb_latency},
+                ],
+            },
+
+            "simulation": {
+                "speedMS":               config.sim_speed_ms,
+                "errorProbabilityPct":   round(config.error_probability * 100, 2),
+                "errorProbabilityDecimal": config.error_probability,
+                "ioFreqMultiplier":      config.io_freq_multiplier,
+                "aging": {
+                    "enabled":  config.aging_enabled,
+                    "interval": config.aging_interval,
+                },
+                "autoCreate": {
+                    "enabled":  config.auto_create,
+                    "maxTicks": config.max_ticks,    # 0 = sin límite
+                },
+                "cpuBoundRatio":         config.cpu_bound_ratio,
+            },
+
+            "processes": proc_list,
+        }
+        return data
+
+    def _export_json_only(self):
+        import json
+        data = self._build_scenario_json()
+        with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        n = len(data["processes"])
+        src = "del SO real (psutil)" if self.radio_sys.isChecked() else "manuales"
+        QMessageBox.information(
+            self, "Exportado",
+            f"Se generó escenario_modelo.json con {n} procesos {src}."
+        )
+
+    def _generate_and_view(self):
+        import json
+        from PySide6.QtWidgets import QProgressDialog
+        from PySide6.QtCore import QCoreApplication
+
+        if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
+            QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
+            return
+
+        # 1. Save input
+        data = self._build_scenario_json()
+        with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        # 2. Llamada al Backend de C++ (PENDIENTE)
+        # TODO(Backend C++): Descomentar estas líneas cuando el motor en C++ esté listo.
+        # La idea es que C++ lea escenario_modelo.json y sobrescriba output_modelo.json
+        # import subprocess
+        # try:
+        #     subprocess.run(["engine.exe", "escenario_modelo.json"], check=True)
+        # except Exception as e:
+        #     QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
+        #     return
+
+        # --- SIMULACIÓN TEMPORAL DE CARGA (Borrar cuando haya backend real) ---
+        progress = QProgressDialog("Calculando simulación en el backend (C++)...", None, 0, 100, self)
+        progress.setWindowTitle("Generando Output")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        for i in range(101):
+            progress.setValue(i)
+            QCoreApplication.processEvents()
+            time.sleep(0.015)  # Total 1.5s delay
+        
+        progress.close()
+        
+        # 3. Accept dialog (main.py will then open the player)
+        self.accept()
