@@ -1,7 +1,7 @@
 """
 ui/config_dialog.py — Configuración de Hardware .
 
-Diálogo de configuración inicial completo (req2.txt).
+Diálogo de configuración inicial completo.
 Organizado en pestañas:
     1. CPU         — cores, scheduler, quantum, context switch, preemptive
     2. Memoria     — total MB, min segmento, estrategia, MMU
@@ -9,7 +9,7 @@ Organizado en pestañas:
     4. Simulación  — velocidad, aging, probabilidades, distribución
     5. Procesos    — modo (sistema/manual), cantidad, distribución
 
-Cada parámetro afecta REALMENTE la simulación (req2.txt).
+Cada parámetro afecta REALMENTE la simulación.
 Al aceptar, retorna un HardwareConfig completo.
 """
 from __future__ import annotations
@@ -275,7 +275,7 @@ class ConfigDialog(QDialog):
         w = QWidget()
         g = QGridLayout(w)
         g.setSpacing(10)
-        g.setContentsMargins(12, 12, 12, 12)
+        g.setContentsMargins(4, 4, 4, 4)
 
         devices = [
             ("⌨️  KEYBOARD", "keyboard_latency", 7,   "Interacción de usuario (baja latencia)"),
@@ -307,100 +307,173 @@ class ConfigDialog(QDialog):
         g.setRowStretch(len(devices) + 1, 1)
         return w
 
+
     def _tab_simulation(self) -> QWidget:
         w = QWidget()
         g = QGridLayout(w)
-        g.setSpacing(10)
+
+        # Espaciado uniforme
+        g.setHorizontalSpacing(20)
+        g.setVerticalSpacing(14)
         g.setContentsMargins(12, 12, 12, 12)
 
         # Velocidad
-        g.addWidget(_lbl("Velocidad inicial:"), 0, 0)
+        lbl_vel = _lbl("Velocidad inicial:")
+        lbl_vel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        g.addWidget(lbl_vel, 0, 0)
+
         speed_row = QHBoxLayout()
+        speed_row.setContentsMargins(0, 0, 0, 0)
+        speed_row.setSpacing(8)
+
         speed_row.addWidget(_lbl("🐌"))
+
         self.slider_speed = QSlider(Qt.Orientation.Horizontal)
         self.slider_speed.setRange(0, 3)
         self.slider_speed.setValue(1)
         self.slider_speed.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.slider_speed.valueChanged.connect(self._update_speed_label)
         speed_row.addWidget(self.slider_speed)
+
         speed_row.addWidget(_lbl("⚡"))
+
         speed_w = QWidget()
         speed_w.setLayout(speed_row)
-        g.addWidget(speed_w, 0, 1)
+
+        g.addWidget(speed_w,0,1,alignment=Qt.AlignmentFlag.AlignLeft)
+
         self.lbl_speed = _lbl("Normal (800 ms/tick)", Colors.ACCENT_LIGHT)
         g.addWidget(self.lbl_speed, 0, 2)
 
-        # Probabilidad de error — porcentaje entero
-        g.addWidget(_lbl("Probabilidad de error:"), 1, 0)
+        # Probabilidad de error
+        lbl_err = _lbl("Probabilidad de error:")
+        lbl_err.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        g.addWidget(lbl_err, 1, 0)
+
         err_row = QHBoxLayout()
+        err_row.setContentsMargins(0, 0, 0, 0)
+
         self.spin_error_prob = QDoubleSpinBox()
         self.spin_error_prob.setRange(0.0, 50.0)
-        self.spin_error_prob.setValue(0.5)        # 0.5 % por defecto (≡ 0.005 decimal)
+        self.spin_error_prob.setValue(0.5)
         self.spin_error_prob.setSingleStep(0.5)
         self.spin_error_prob.setDecimals(1)
         self.spin_error_prob.setFixedWidth(100)
         self.spin_error_prob.setSuffix(" %")
+
+        err_row.addWidget(self.spin_error_prob)
+
         err_w = QWidget()
         err_w.setLayout(err_row)
-        err_row.addWidget(self.spin_error_prob)
-        g.addWidget(err_w, 1, 1)
-        g.addWidget(_lbl("% de procesos que terminarán con error fatal"), 1, 2)
+
+        g.addWidget(err_w,1,1,alignment=Qt.AlignmentFlag.AlignLeft)
+
+        g.addWidget(_lbl("% de procesos que terminarán con error fatal"),1,2        )
 
         # Multiplicador I/O
-        g.addWidget(_lbl("Multiplicador de frecuencia I/O:"), 2, 0)
+        lbl_io = _lbl("Multiplicador de frecuencia I/O:")
+        lbl_io.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        g.addWidget(lbl_io, 2, 0)
+
         self.spin_io_mult = QDoubleSpinBox()
         self.spin_io_mult.setRange(0.1, 5.0)
         self.spin_io_mult.setValue(1.0)
         self.spin_io_mult.setSingleStep(0.1)
         self.spin_io_mult.setDecimals(1)
         self.spin_io_mult.setFixedWidth(100)
-        g.addWidget(self.spin_io_mult, 2, 1)
-        g.addWidget(_lbl("1.0 = base. 2.0 = doble de solicitudes I/O"), 2, 2)
+
+        g.addWidget(
+            self.spin_io_mult,
+            2,
+            1,
+            alignment=Qt.AlignmentFlag.AlignLeft
+        )
+
+        g.addWidget(
+            _lbl("1.0 = base. 2.0 = doble de solicitudes I/O"),
+            2,
+            2
+        )
 
         # Aging
         self.chk_aging = QCheckBox("Aging anti-starvation habilitado")
         self.chk_aging.setChecked(True)
         g.addWidget(self.chk_aging, 3, 0, 1, 3)
 
-        g.addWidget(_lbl("Intervalo de aging (ticks en READY):"), 4, 0)
+        lbl_aging = _lbl("Intervalo de aging (ticks en READY):")
+        lbl_aging.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        g.addWidget(lbl_aging, 4, 0)
+
         self.spin_aging = QSpinBox()
         self.spin_aging.setRange(5, 100)
         self.spin_aging.setValue(20)
         self.spin_aging.setFixedWidth(100)
-        g.addWidget(self.spin_aging, 4, 1)
-        g.addWidget(_lbl("Cada N ticks esperando, la prioridad sube 1"), 4, 2)
 
-        # Auto-crear
+        g.addWidget(
+            self.spin_aging,
+            4,
+            1,
+            alignment=Qt.AlignmentFlag.AlignLeft
+        )
+
+        g.addWidget(
+            _lbl("Cada N ticks esperando, la prioridad sube 1"),
+            4,
+            2
+        )
+
+        # Auto-crear procesos
         self.chk_auto = QCheckBox("Auto-crear procesos durante la simulación")
         self.chk_auto.setChecked(False)
         g.addWidget(self.chk_auto, 5, 0, 1, 3)
 
-        # Max ticks (only relevant when auto_create is on)
+        # Tick límite
         self.max_ticks_row = QWidget()
         mt_layout = QHBoxLayout(self.max_ticks_row)
         mt_layout.setContentsMargins(20, 0, 0, 0)
         mt_layout.setSpacing(8)
-        mt_layout.addWidget(_lbl("  Detener creación en tick:"))
+
+        mt_layout.addWidget(_lbl("Detener creación en tick:"))
+
         self.spin_max_ticks = QSpinBox()
         self.spin_max_ticks.setRange(0, 10000)
         self.spin_max_ticks.setValue(500)
         self.spin_max_ticks.setFixedWidth(100)
         self.spin_max_ticks.setSpecialValueText("Sin límite")
+
         mt_layout.addWidget(self.spin_max_ticks)
-        mt_layout.addWidget(_lbl("  (0 = sin límite; la simulación acaba cuando terminan todos los procesos)",
-                                 Colors.TEXT_MUTED, 8))
+
+        mt_layout.addWidget(
+            _lbl(
+                "(0 = sin límite; la simulación acaba cuando terminan todos los procesos)",
+                Colors.TEXT_MUTED,
+                8,
+            )
+        )
+
         mt_layout.addStretch()
+
         g.addWidget(self.max_ticks_row, 6, 0, 1, 3)
+
         self.max_ticks_row.setEnabled(False)
         self.chk_auto.toggled.connect(self.max_ticks_row.setEnabled)
 
         g.addWidget(_hint(
-            "El aging evita starvation: procesos que esperan mucho ganan prioridad. "
-            "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta. "
-            "Si auto-crear está activo, define un límite de ticks para que la simulación pueda terminar."
-        ), 7, 0, 1, 3)
+                "El aging evita starvation: procesos que esperan mucho ganan prioridad. "
+                "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta. "
+                "Si auto-crear está activo, define un límite de ticks para que la simulación pueda terminar."
+            ),7,0,1,3,        )
+
+        # Distribución de columnas
+        g.setColumnMinimumWidth(0, 240)
+        g.setColumnMinimumWidth(1, 220)
+
+        g.setColumnStretch(0, 0)
+        g.setColumnStretch(1, 0)
+        g.setColumnStretch(2, 1)
 
         g.setRowStretch(8, 1)
+
         return w
 
     def _tab_processes(self) -> QWidget:
