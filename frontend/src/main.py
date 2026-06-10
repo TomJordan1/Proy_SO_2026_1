@@ -1,5 +1,5 @@
 """
-main.py — Punto de entrada de PatatOS v2.
+main.py — Punto de entrada de PatatOS .
 
 Flujo:
     1. QApplication

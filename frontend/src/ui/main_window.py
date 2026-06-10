@@ -1,5 +1,5 @@
 """
-ui/main_window.py — Ventana Principal de PatatOS v2.
+ui/main_window.py — Ventana Principal de PatatOS .
 
 Organización del layout:
   ┌─ toolbar ────────────────────────────────────────────────────────────────┐
@@ -66,7 +66,7 @@ def _lbl(text: str, color: str = Colors.TEXT_SEC) -> QLabel:
 
 class MainWindow(QMainWindow):
     """
-    Ventana principal de PatatOS v2.
+    Ventana principal de PatatOS .
     Reproductor puramente estático de un archivo JSON (output_modelo.json).
     """
 
@@ -346,7 +346,7 @@ class MainWindow(QMainWindow):
             }}
         """)
         sb.addPermanentWidget(_lbl(
-            "PatatOS v2.0 — Simulador Educativo SO", Colors.TEXT_MUTED
+            "PatatOS .0 — Simulador Educativo SO", Colors.TEXT_MUTED
         ))
 
     # ─────────────────────────────────────────────────────────────────────────

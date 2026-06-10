@@ -1,5 +1,5 @@
 """
-ui/config_dialog.py — Configuración de Hardware v2.
+ui/config_dialog.py — Configuración de Hardware .
 
 Diálogo de configuración inicial completo (req2.txt).
 Organizado en pestañas:
@@ -58,19 +58,19 @@ class ManualProcessRow(QWidget):
         self.burst = QSpinBox()
         self.burst.setRange(3, 100)
         self.burst.setValue(20)
-        self.burst.setFixedWidth(80)
+        self.burst.setFixedWidth(100)
         layout.addWidget(self.burst)
 
         self.priority = QSpinBox()
         self.priority.setRange(0, 9)
         self.priority.setValue(5)
-        self.priority.setFixedWidth(70)
+        self.priority.setFixedWidth(100)
         layout.addWidget(self.priority)
 
         self.memory = QSpinBox()
         self.memory.setRange(4, 256)
         self.memory.setValue(32)
-        self.memory.setFixedWidth(80)
+        self.memory.setFixedWidth(100)
         layout.addWidget(self.memory)
 
         self.ptype = QComboBox()
@@ -109,7 +109,7 @@ class ConfigDialog(QDialog):
         root.setContentsMargins(16, 16, 16, 12)
 
         # Título
-        title = QLabel("🥔  PatatOS  —  Simulador de Sistema Operativo")
+        title = QLabel("PatatOS  —  Simulador de Sistema Operativo")
         title.setStyleSheet(f"color:{Colors.ACCENT_LIGHT}; font-size:14pt; font-weight:bold; background:transparent;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(title)
@@ -168,14 +168,14 @@ class ConfigDialog(QDialog):
         self.spin_cores = QSpinBox()
         self.spin_cores.setRange(1, 4)
         self.spin_cores.setValue(1)
-        self.spin_cores.setFixedWidth(70)
+        self.spin_cores.setFixedWidth(110)
         g.addWidget(self.spin_cores, 0, 1)
         g.addWidget(_lbl("(1-4 cores independientes, cada uno con su propio scheduler)", Colors.TEXT_MUTED, 8), 0, 2)
 
         g.addWidget(_lbl("Algoritmo de planificación:"), 1, 0)
         self.combo_sched = QComboBox()
-        self.combo_sched.addItems(["FCFS", "SJF", "SRTF", "Priority", "RR", "MLFQ (Beta)"])
-        self.combo_sched.setFixedWidth(180)
+        self.combo_sched.addItems(["FCFS", "SJF", "SRTF", "Priority", "RR", "MLFQ (WIP)"])
+        self.combo_sched.setFixedWidth(110)
         self.combo_sched.currentIndexChanged.connect(self._on_sched_changed)
         g.addWidget(self.combo_sched, 1, 1)
 
@@ -183,7 +183,7 @@ class ConfigDialog(QDialog):
         self.spin_quantum = QSpinBox()
         self.spin_quantum.setRange(1, 50)
         self.spin_quantum.setValue(4)
-        self.spin_quantum.setFixedWidth(70)
+        self.spin_quantum.setFixedWidth(110)
         self.spin_quantum.setEnabled(False)
         g.addWidget(self.spin_quantum, 2, 1)
 
@@ -191,7 +191,7 @@ class ConfigDialog(QDialog):
         self.spin_ctx_cost = QSpinBox()
         self.spin_ctx_cost.setRange(0, 10)
         self.spin_ctx_cost.setValue(1)
-        self.spin_ctx_cost.setFixedWidth(70)
+        self.spin_ctx_cost.setFixedWidth(110)
         g.addWidget(self.spin_ctx_cost, 3, 1)
         g.addWidget(_lbl("0 = instantáneo. Mayor costo → más overhead → menor throughput", Colors.TEXT_MUTED, 8), 3, 2)
 
@@ -219,7 +219,7 @@ class ConfigDialog(QDialog):
         self.spin_mem.setRange(128, 4096)
         self.spin_mem.setValue(1024)
         self.spin_mem.setSingleStep(128)
-        self.spin_mem.setFixedWidth(90)
+        self.spin_mem.setFixedWidth(100)
         self.spin_mem.valueChanged.connect(self._update_mem_label)
         g.addWidget(self.spin_mem, 0, 1)
 
@@ -230,14 +230,14 @@ class ConfigDialog(QDialog):
         self.spin_min_seg = QSpinBox()
         self.spin_min_seg.setRange(1, 64)
         self.spin_min_seg.setValue(4)
-        self.spin_min_seg.setFixedWidth(70)
+        self.spin_min_seg.setFixedWidth(100)
         g.addWidget(self.spin_min_seg, 1, 1)
 
         g.addWidget(_lbl("Tamaño máximo de proceso (MB):"), 2, 0)
         self.spin_max_proc = QSpinBox()
         self.spin_max_proc.setRange(8, 1024)
         self.spin_max_proc.setValue(256)
-        self.spin_max_proc.setFixedWidth(90)
+        self.spin_max_proc.setFixedWidth(100)
         g.addWidget(self.spin_max_proc, 2, 1)
 
         g.addWidget(_lbl("Estrategia de asignación:"), 3, 0)
@@ -291,7 +291,7 @@ class ConfigDialog(QDialog):
             spin = QSpinBox()
             spin.setRange(1, 100)
             spin.setValue(default)
-            spin.setFixedWidth(70)
+            spin.setFixedWidth(100)
             spin.setToolTip(desc)
             g.addWidget(spin, row, 1)
             g.addWidget(_lbl("ticks de servicio"), row, 2)
@@ -338,7 +338,7 @@ class ConfigDialog(QDialog):
         self.spin_error_prob.setValue(0.5)        # 0.5 % por defecto (≡ 0.005 decimal)
         self.spin_error_prob.setSingleStep(0.5)
         self.spin_error_prob.setDecimals(1)
-        self.spin_error_prob.setFixedWidth(90)
+        self.spin_error_prob.setFixedWidth(100)
         self.spin_error_prob.setSuffix(" %")
         err_w = QWidget()
         err_w.setLayout(err_row)
@@ -353,7 +353,7 @@ class ConfigDialog(QDialog):
         self.spin_io_mult.setValue(1.0)
         self.spin_io_mult.setSingleStep(0.1)
         self.spin_io_mult.setDecimals(1)
-        self.spin_io_mult.setFixedWidth(90)
+        self.spin_io_mult.setFixedWidth(100)
         g.addWidget(self.spin_io_mult, 2, 1)
         g.addWidget(_lbl("1.0 = base. 2.0 = doble de solicitudes I/O"), 2, 2)
 
@@ -366,7 +366,7 @@ class ConfigDialog(QDialog):
         self.spin_aging = QSpinBox()
         self.spin_aging.setRange(5, 100)
         self.spin_aging.setValue(20)
-        self.spin_aging.setFixedWidth(70)
+        self.spin_aging.setFixedWidth(100)
         g.addWidget(self.spin_aging, 4, 1)
         g.addWidget(_lbl("Cada N ticks esperando, la prioridad sube 1"), 4, 2)
 
@@ -384,7 +384,7 @@ class ConfigDialog(QDialog):
         self.spin_max_ticks = QSpinBox()
         self.spin_max_ticks.setRange(0, 10000)
         self.spin_max_ticks.setValue(500)
-        self.spin_max_ticks.setFixedWidth(90)
+        self.spin_max_ticks.setFixedWidth(100)
         self.spin_max_ticks.setSpecialValueText("Sin límite")
         mt_layout.addWidget(self.spin_max_ticks)
         mt_layout.addWidget(_lbl("  (0 = sin límite; la simulación acaba cuando terminan todos los procesos)",
@@ -451,7 +451,7 @@ class ConfigDialog(QDialog):
         man_layout.setSpacing(4)
 
         header_row = QHBoxLayout()
-        for label, width in [("Proceso", 140), ("Burst", 85), ("Prior.", 75), ("Mem (MB)", 85), ("Tipo", 125)]:
+        for label, width in [("Proceso", 140), ("Burst", 100), ("Prior.", 100), ("Mem (MB)", 100), ("Tipo", 125)]:
             lbl = _lbl(label, Colors.TEXT_SEC, 8)
             lbl.setFixedWidth(width)
             header_row.addWidget(lbl)
@@ -530,7 +530,7 @@ class ConfigDialog(QDialog):
         ("Scheduler",  10, 1, 8,   "SYSTEM"),
         ("NetworkMgr", 22, 2, 24,  "IO_BOUND"),
         ("UIServer",   28, 3, 40,  "INTERACTIVE"),
-        ("CryptoSvc",  55, 4, 32,  "CPU_BOUND"),
+        ("TungTungSahur",  55, 4, 35,  "CPU_BOUND"),
         ("MemMgr",      8, 1, 12,  "SYSTEM"),
     ]
 
