@@ -480,7 +480,7 @@ class MainWindow(QMainWindow):
         pd.show()
 
         try:
-            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            process = subprocess.Popen([SIMULATOR_EXE, "-t", "50000"], cwd=BACKEND_DIR)
             while process.poll() is None:
                 QCoreApplication.processEvents()
                 time.sleep(0.05)
@@ -547,7 +547,7 @@ class MainWindow(QMainWindow):
             progress.show()
 
             try:
-                process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+                process = subprocess.Popen([SIMULATOR_EXE, "-t", "50000"], cwd=BACKEND_DIR)
                 while process.poll() is None:
                     QCoreApplication.processEvents()
                     time.sleep(0.05)
@@ -626,7 +626,7 @@ class MainWindow(QMainWindow):
         pd.show()
 
         try:
-            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            process = subprocess.Popen([SIMULATOR_EXE, "-t", "50000"], cwd=BACKEND_DIR)
             while process.poll() is None:
                 QCoreApplication.processEvents()
                 time.sleep(0.05)

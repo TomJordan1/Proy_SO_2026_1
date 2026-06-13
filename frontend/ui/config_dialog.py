@@ -807,7 +807,7 @@ class ConfigDialog(QDialog):
         
         try:
             # Ejecutar de forma no bloqueante para la UI usando Popen
-            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            process = subprocess.Popen([SIMULATOR_EXE, "-t", "50000"], cwd=BACKEND_DIR)
             
             # Polling hasta que termine
             while process.poll() is None:

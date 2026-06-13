@@ -41,7 +41,8 @@ struct TickSnapshot {
     double   avgResponse;
     int      contextSwitches;
     int      starvationEvents;
-    double   errorRate;
+    int      totalErrors;
+    int      totalCompleted;
     // Events for this tick
     ContextSwitchEvent ctxEvent;
     bool               hasCtxEvent;

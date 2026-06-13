@@ -2,7 +2,7 @@
   "metadata": {
     "name": "Simulación OS Completa - Proyecto Final",
     "executionDate": "2026-06-12",
-    "executionTime": "21:54:03",
+    "executionTime": "23:08:02",
     "realTimeTrackingEnabled": false,
     "availableAlgorithms": [
       "FCFS",
@@ -12,7 +12,7 @@
       "RR",
       "MLFQ"
     ],
-    "processSource": "manual"
+    "processSource": "psutil"
   },
   "hardware": {
     "cpu": {
@@ -41,7 +41,7 @@
       },
       {
         "id": "PRINTER",
-        "latency": 19
+        "latency": 20
       },
       {
         "id": "NETWORK",
@@ -70,172 +70,164 @@
   },
   "processes": [
     {
-      "name": "Sistema",
-      "burst_time": 10,
-      "priority": 0,
-      "memory_size": 16,
+      "name": "System Idle Proc",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 4,
       "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "Kernel",
-      "burst_time": 8,
-      "priority": 0,
-      "memory_size": 12,
+      "name": "System",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 6,
       "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "svchost",
-      "burst_time": 15,
-      "priority": 1,
-      "memory_size": 24,
-      "process_type": "SYSTEM",
-      "arrival_tick": 0
-    },
-    {
-      "name": "Explorador",
-      "burst_time": 30,
-      "priority": 3,
-      "memory_size": 48,
-      "process_type": "INTERACTIVE",
-      "arrival_tick": 0
-    },
-    {
-      "name": "Navegador",
-      "burst_time": 45,
-      "priority": 2,
-      "memory_size": 128,
-      "process_type": "INTERACTIVE",
-      "arrival_tick": 0
-    },
-    {
-      "name": "Editor",
-      "burst_time": 25,
-      "priority": 3,
+      "name": "proc",
+      "burst_time": 20,
+      "priority": 5,
       "memory_size": 64,
       "process_type": "CPU_BOUND",
       "arrival_tick": 0
     },
     {
-      "name": "Compilador",
-      "burst_time": 80,
-      "priority": 4,
-      "memory_size": 96,
+      "name": "Registry",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 60,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "brave.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 256,
       "process_type": "CPU_BOUND",
       "arrival_tick": 0
     },
     {
-      "name": "Database",
+      "name": "RuntimeBroker.ex",
       "burst_time": 20,
-      "priority": 2,
-      "memory_size": 80,
-      "process_type": "IO_BOUND",
+      "priority": 5,
+      "memory_size": 4,
+      "process_type": "CPU_BOUND",
       "arrival_tick": 0
     },
     {
-      "name": "Servidor",
-      "burst_time": 60,
-      "priority": 2,
-      "memory_size": 64,
-      "process_type": "IO_BOUND",
+      "name": "OneDrive.Sync.Se",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 15,
+      "process_type": "CPU_BOUND",
       "arrival_tick": 0
     },
     {
-      "name": "Logger",
-      "burst_time": 12,
+      "name": "svchost.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 19,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "smss.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 4,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "csrss.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 6,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "wininit.exe",
+      "burst_time": 20,
       "priority": 5,
       "memory_size": 8,
-      "process_type": "IO_BOUND",
+      "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "Antivirus",
-      "burst_time": 40,
-      "priority": 4,
-      "memory_size": 32,
-      "process_type": "CPU_BOUND",
+      "name": "svchost.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 11,
+      "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "Backup",
-      "burst_time": 90,
-      "priority": 6,
-      "memory_size": 48,
-      "process_type": "IO_BOUND",
-      "arrival_tick": 0
-    },
-    {
-      "name": "Player",
-      "burst_time": 35,
-      "priority": 3,
-      "memory_size": 96,
-      "process_type": "INTERACTIVE",
-      "arrival_tick": 0
-    },
-    {
-      "name": "Terminal",
-      "burst_time": 18,
-      "priority": 2,
+      "name": "services.exe",
+      "burst_time": 20,
+      "priority": 5,
       "memory_size": 16,
-      "process_type": "INTERACTIVE",
+      "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "Updater",
-      "burst_time": 50,
-      "priority": 7,
-      "memory_size": 32,
-      "process_type": "IO_BOUND",
+      "name": "LsaIso.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 4,
+      "process_type": "CPU_BOUND",
       "arrival_tick": 0
     },
     {
-      "name": "Scheduler",
-      "burst_time": 10,
-      "priority": 1,
+      "name": "lsass.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 36,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "TextInputHost.ex",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 23,
+      "process_type": "CPU_BOUND",
+      "arrival_tick": 0
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 9,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 20,
+      "priority": 5,
       "memory_size": 8,
       "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": "NetworkMgr",
-      "burst_time": 22,
-      "priority": 2,
-      "memory_size": 24,
-      "process_type": "IO_BOUND",
-      "arrival_tick": 0
-    },
-    {
-      "name": "UIServer",
-      "burst_time": 28,
-      "priority": 3,
-      "memory_size": 40,
-      "process_type": "INTERACTIVE",
-      "arrival_tick": 0
-    },
-    {
-      "name": "CryptoSvc",
-      "burst_time": 55,
-      "priority": 4,
-      "memory_size": 32,
-      "process_type": "CPU_BOUND",
-      "arrival_tick": 0
-    },
-    {
-      "name": "MemMgr",
-      "burst_time": 8,
-      "priority": 1,
-      "memory_size": 12,
+      "name": "svchost.exe",
+      "burst_time": 20,
+      "priority": 5,
+      "memory_size": 9,
       "process_type": "SYSTEM",
       "arrival_tick": 0
     },
     {
-      "name": null,
+      "name": "svchost.exe",
       "burst_time": 20,
       "priority": 5,
-      "memory_size": 32,
-      "process_type": "CPU_BOUND",
-      "arrival_tick": 200
+      "memory_size": 45,
+      "process_type": "SYSTEM",
+      "arrival_tick": 0
     }
   ]
 }

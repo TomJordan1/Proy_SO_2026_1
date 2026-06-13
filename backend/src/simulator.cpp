@@ -437,7 +437,8 @@ TickSnapshot Simulator::buildSnapshot(int tick) const {
     snap.avgResponse    = avgResponse();
     snap.contextSwitches = totalCtxSwitches_;
     snap.starvationEvents = starvationEvents_;
-    snap.errorRate      = errors_.errorRate();
+    snap.totalErrors      = errors_.errorCount();
+    snap.totalCompleted   = completedCount_;
 
     // Timeline
     snap.hasCtxEvent = hadCtxEvent_;

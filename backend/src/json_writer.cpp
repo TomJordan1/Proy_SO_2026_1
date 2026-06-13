@@ -116,6 +116,7 @@ json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
         entry["io_device"]          = p->ioDevice.has_value() ? json(p->ioDevice.value()) : json(nullptr);
         entry["arrival_tick"]       = p->arrivalTick;
         entry["response_time"]      = p->responseTime;
+        entry["turnaround_time"]    = p->turnaround;
         if (p->errorCode != ErrorCode::NONE) {
             entry["error_code"] = errorCodeToString(p->errorCode);
         }
@@ -189,28 +190,16 @@ json JsonWriter::serializeMetrics(const TickSnapshot& snap) const {
     m["cpu_utilization"]  = snap.cpuUtilization;
     m["throughput"]       = snap.throughput;
     m["avg_turnaround"]   = snap.avgTurnaround;
-    m["avg_waiting"]      = snap.avgWaiting;
-    m["avg_response"]     = snap.avgResponse;
+    m["avg_waiting_time"] = snap.avgWaiting;
+    m["avg_response_time"]= snap.avgResponse;
     m["context_switches"] = snap.contextSwitches;
     m["starvation_events"]= snap.starvationEvents;
-    m["error_rate"]       = snap.errorRate;
+    m["total_errors"]     = snap.totalErrors;
+    m["total_completed"]  = snap.totalCompleted;
     return m;
 }
 
-// ─── serializeTimeline ───────────────────────────────────────────────────────
-json JsonWriter::serializeTimeline(const TickSnapshot& snap) const {
-    json arr = json::array();
-    if (snap.hasCtxEvent) {
-        json ev;
-        ev["tick"]       = snap.ctxEvent.tick;
-        ev["core_id"]    = snap.ctxEvent.coreId;
-        ev["label"]      = snap.ctxEvent.label;
-        ev["from_state"] = snap.ctxEvent.fromState;
-        ev["to_state"]   = snap.ctxEvent.toState;
-        arr.push_back(ev);
-    }
-    return arr;
-}
+
 
 // ─── recordTick ──────────────────────────────────────────────────────────────
 void JsonWriter::recordTick(const TickSnapshot& snap) {
@@ -235,7 +224,7 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
     tickObj["waiting"] = serializeWaiting(snap.waitingList);
 
     // Process table
-    tickObj["process_table"] = serializeProcessTable(snap.processTable);
+    tickObj["all_processes"] = serializeProcessTable(snap.processTable);
 
     // Memory
     if (snap.memory) {
@@ -249,16 +238,6 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
 
     // Metrics
     tickObj["metrics"] = serializeMetrics(snap);
-
-    // Timeline
-    tickObj["timeline"] = serializeTimeline(snap);
-
-    // Console logs
-    json logs = json::array();
-    for (const auto& line : snap.consoleLogs) {
-        logs.push_back(line);
-    }
-    tickObj["console_logs"] = logs;
 
     output_["ticks"].push_back(tickObj);
 }
