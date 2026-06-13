@@ -769,8 +769,9 @@ class ConfigDialog(QDialog):
 
     def _export_json_only(self):
         import json
+        from simulation.paths import ESCENARIO_PATH
         data = self._build_scenario_json()
-        with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         n = len(data["processes"])
@@ -782,8 +783,11 @@ class ConfigDialog(QDialog):
 
     def _generate_and_view(self):
         import json
+        import subprocess
+        import time
         from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import QCoreApplication
+        from simulation.paths import ESCENARIO_PATH, BACKEND_DIR, SIMULATOR_EXE
 
         if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
             QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
@@ -791,31 +795,39 @@ class ConfigDialog(QDialog):
 
         # 1. Save input
         data = self._build_scenario_json()
-        with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        # 2. Llamada al Backend de C++ (PENDIENTE)
-        # TODO(Backend C++): Descomentar estas líneas cuando el motor en C++ esté listo.
-        # La idea es que C++ lea escenario_modelo.json y sobrescriba output_modelo.json
-        # import subprocess
-        # try:
-        #     subprocess.run(["engine.exe", "escenario_modelo.json"], check=True)
-        # except Exception as e:
-        #     QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
-        #     return
-
-        # --- SIMULACIÓN TEMPORAL DE CARGA (Borrar cuando haya backend real) ---
-        progress = QProgressDialog("Calculando simulación en el backend (C++)...", None, 0, 100, self)
-        progress.setWindowTitle("Generando Output")
+        # 2. Llamada al Backend de C++
+        progress = QProgressDialog("Esperando respuesta del motor C++...", None, 0, 0, self)
+        progress.setWindowTitle("Simulando")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)
+        progress.setCancelButton(None) # No permitir cancelar
         progress.show()
-
-        for i in range(101):
-            progress.setValue(i)
-            QCoreApplication.processEvents()
-            time.sleep(0.015)  # Total 1.5s delay
         
+        try:
+            # Ejecutar de forma no bloqueante para la UI usando Popen
+            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            
+            # Polling hasta que termine
+            while process.poll() is None:
+                QCoreApplication.processEvents()
+                time.sleep(0.05)
+                
+            if process.returncode != 0:
+                QMessageBox.critical(self, "Error de Backend", f"El motor C++ terminó con error: {process.returncode}")
+                progress.close()
+                return
+                
+        except FileNotFoundError:
+             QMessageBox.critical(self, "Error de Backend", f"No se encontró el ejecutable: {SIMULATOR_EXE}")
+             progress.close()
+             return
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
+            progress.close()
+            return
+            
         progress.close()
         
         # 3. Accept dialog (main.py will then open the player)

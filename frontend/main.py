@@ -42,7 +42,8 @@ def main():
 
     # El diálogo ha creado "escenario_modelo.json" y fingió ejecutar C++.
     # Ahora deberíamos tener "output_modelo.json".
-    output_file = "output_modelo.json"
+    from simulation.paths import OUTPUT_PATH
+    output_file = OUTPUT_PATH
     if not os.path.exists(output_file):
         QMessageBox.critical(None, "Error", f"No se encontró el archivo {output_file} generado por el backend.")
         sys.exit(1)

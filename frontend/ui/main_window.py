@@ -21,6 +21,11 @@ Organización del layout:
 from __future__ import annotations
 
 from typing import Optional
+import subprocess
+import time
+from PySide6.QtCore import QCoreApplication
+
+from simulation.paths import ESCENARIO_PATH, OUTPUT_PATH, BACKEND_DIR, SIMULATOR_EXE
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -87,8 +92,8 @@ class MainWindow(QMainWindow):
         # Leer escenario en vivo para overrides de UI (simulando que C++ respetó la config)
         self._live_config = {}
         try:
-            if os.path.exists("escenario_modelo.json"):
-                with open("escenario_modelo.json", "r", encoding="utf-8") as f:
+            if os.path.exists(ESCENARIO_PATH):
+                with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
                     self._live_config = json.load(f)
         except Exception:
             pass
@@ -460,34 +465,36 @@ class MainWindow(QMainWindow):
             scen["hardware"]["quantum"] = self.spin_q.value()
             scen["hardware"]["memory_strategy"] = self.combo_mem.currentText()
             
-            with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+            with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=4)
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Fallo al guardar JSON: {e}")
             return
             
-        # Llamada al Backend de C++ para Recalcular (PENDIENTE)
-        # TODO(Backend C++): Descomentar estas líneas cuando el motor C++ pueda
-        # leer el escenario modificado y generar un nuevo output_modelo.json
-        # import subprocess
-        # try:
-        #     subprocess.run(["engine.exe", "escenario_modelo.json"], check=True)
-        # except Exception as e:
-        #     QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
-        #     return
-            
-        # --- SIMULACIÓN TEMPORAL DE CARGA (Borrar cuando haya backend real) ---
-        pd = QProgressDialog("Recalculando Universo en el Backend (C++)...", None, 0, 100, self)
+        # --- LLAMADA AL BACKEND ---
+        pd = QProgressDialog("Recalculando Universo en el Backend (C++)...", None, 0, 0, self)
         pd.setWindowTitle("Aplicando Configuración...")
         pd.setWindowModality(Qt.WindowModality.WindowModal)
-        pd.setMinimumDuration(0)
-        pd.setValue(0)
+        pd.setCancelButton(None)
+        pd.show()
 
-        for i in range(101):
-            pd.setValue(i)
-            QCoreApplication.processEvents()
-            time.sleep(0.015)
+        try:
+            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            while process.poll() is None:
+                QCoreApplication.processEvents()
+                time.sleep(0.05)
+            
+            if process.returncode != 0:
+                QMessageBox.critical(self, "Error de Backend", f"El motor C++ terminó con error: {process.returncode}")
+                pd.close()
+                return
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
+            pd.close()
+            return
+            
+        pd.close()
             
         # Recargar output actual
         try:
@@ -519,39 +526,40 @@ class MainWindow(QMainWindow):
             d = dlg.get_data()
             
             # Leer escenario de entrada
-            if os.path.exists("escenario_modelo.json"):
-                with open("escenario_modelo.json", "r", encoding="utf-8") as f:
+            if os.path.exists(ESCENARIO_PATH):
+                with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
                     scen = json.load(f)
             else:
                 scen = {"processes": []}
             
             # Añadir nuevo proceso
-            scen["processes"].append(d)
+            scen.setdefault("processes", []).append(d)
             
             # Guardar escenario de entrada
-            with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+            with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=2, ensure_ascii=False)
             
-            # 1. Llamada al Backend de C++ para Recalcular (PENDIENTE)
-            # TODO(Backend C++): Descomentar estas líneas cuando el motor C++ esté listo.
-            # import subprocess
-            # try:
-            #     subprocess.run(["engine.exe", "escenario_modelo.json"], check=True)
-            # except Exception as e:
-            #     QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
-            #     return
-
-            # --- SIMULACIÓN TEMPORAL DE CARGA (Borrar cuando haya backend real) ---
-            progress = QProgressDialog("Recalculando el futuro en el backend (C++)...", None, 0, 100, self)
+            # --- LLAMADA AL BACKEND ---
+            progress = QProgressDialog("Recalculando el futuro en el backend (C++)...", None, 0, 0, self)
             progress.setWindowTitle("Generando Output")
             progress.setWindowModality(Qt.WindowModality.WindowModal)
-            progress.setMinimumDuration(0)
+            progress.setCancelButton(None)
             progress.show()
 
-            for i in range(101):
-                progress.setValue(i)
-                QCoreApplication.processEvents()
-                time.sleep(0.015)  # Total 1.5s delay
+            try:
+                process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+                while process.poll() is None:
+                    QCoreApplication.processEvents()
+                    time.sleep(0.05)
+                
+                if process.returncode != 0:
+                    QMessageBox.critical(self, "Error de Backend", f"El motor C++ terminó con error: {process.returncode}")
+                    progress.close()
+                    return
+            except Exception as e:
+                QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
+                progress.close()
+                return
             
             progress.close()
 
@@ -584,8 +592,8 @@ class MainWindow(QMainWindow):
         self.btn_pause.setEnabled(False)
 
         try:
-            if os.path.exists("escenario_modelo.json"):
-                with open("escenario_modelo.json", "r", encoding="utf-8") as f:
+            if os.path.exists(ESCENARIO_PATH):
+                with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
                     scen = json.load(f)
             else:
                 scen = {}
@@ -599,37 +607,38 @@ class MainWindow(QMainWindow):
                 "action": action,
             })
 
-            with open("escenario_modelo.json", "w", encoding="utf-8") as f:
+            with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=2, ensure_ascii=False)
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo inyectar el evento de teclado:\n{e}")
             return
 
-        # Llamada al Backend de C++ para Recalcular (PENDIENTE)
-        # TODO(Backend C++): Descomentar estas líneas cuando el motor C++ esté listo.
-        # import subprocess
-        # try:
-        #     subprocess.run(["engine.exe", "escenario_modelo.json"], check=True)
-        # except Exception as e:
-        #     QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
-        #     return
-
-        # --- SIMULACIÓN TEMPORAL DE CARGA (Borrar cuando haya backend real) ---
+        # --- LLAMADA AL BACKEND ---
         action_text = "cancelado" if action == "CANCEL" else "reanudado"
         pd = QProgressDialog(
             f"Recalculando universo — PID {pid} será {action_text}...",
-            None, 0, 100, self
+            None, 0, 0, self
         )
         pd.setWindowTitle("Procesando Señal de Teclado")
         pd.setWindowModality(Qt.WindowModality.WindowModal)
-        pd.setMinimumDuration(0)
+        pd.setCancelButton(None)
         pd.show()
 
-        for i in range(101):
-            pd.setValue(i)
-            QCoreApplication.processEvents()
-            time.sleep(0.012)
+        try:
+            process = subprocess.Popen([SIMULATOR_EXE], cwd=BACKEND_DIR)
+            while process.poll() is None:
+                QCoreApplication.processEvents()
+                time.sleep(0.05)
+            
+            if process.returncode != 0:
+                QMessageBox.critical(self, "Error de Backend", f"El motor C++ terminó con error: {process.returncode}")
+                pd.close()
+                return
+        except Exception as e:
+            QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar el motor C++:\n{e}")
+            pd.close()
+            return
 
         pd.close()
 
