@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "name": "Simulación OS Completa - Proyecto Final",
+    "description": "Evaluación de algoritmos RR, First-Fit y gestión de 5 dispositivos de E/S"
+  },
+  
+  "hardware": {
+    "cpuCount": 1,
+    "memory": {
+      "totalSize": 4096,
+      "blockSize": 32, 
+      "managementMethod": "BITMAP", 
+      "allocationStrategy": "FIRST_FIT" 
+    },
+    "ioDevices": [
+      { "id": "KEYBOARD", "name": "Teclado", "type": "INPUT", "interruptCode": 1 },
+      { "id": "DISK", "name": "Disco Duro", "type": "STORAGE", "interruptCode": 2 },
+      { "id": "PRINTER", "name": "Impresora", "type": "OUTPUT", "interruptCode": 3 },
+      { "id": "MOUSE", "name": "Mouse", "type": "INPUT", "interruptCode": 4 },
+      { "id": "NETWORK", "name": "Tarjeta de Red", "type": "NETWORK", "interruptCode": 5 }
+    ]
+  },
+
+  "os_config": {
+    "scheduler": {
+      "algorithm": "ROUND_ROBIN",
+      "context": "PREEMPTIVE", 
+      "quantum": 4
+    },
+    "simulation_parameters": {
+      "errorRatePercentage": 0.5, 
+      "randomInterrupts": {
+        "enabled": true,
+        "minCount": 5,
+        "maxCount": 20,
+        "minDuration": 5,
+        "maxDuration": 20
+      }
+    }
+  },
+
+  "processes": [
+    {
+      "pid": 1,
+      "name": "P1_Navegador",
+      "arrivalTick": 0,
+      "priority": 2,
+      "memory_requirements": {
+        "executableSize": 512,
+        "dataSegmentPercent": 10,
+        "variableMemoryPercent": 20
+      },
+      "execution": {
+        "estimatedBurstTime": 45
+      },
+      "manual_instructions": [
+        { "type": "CPU", "duration": 10 },
+        { "type": "IO", "duration": 5, "device": "DISK" },
+        { "type": "CPU", "duration": 15 },
+        { "type": "IO", "duration": 3, "device": "NETWORK" },
+        { "type": "CPU", "duration": 12 }
+      ]
+    },
+    {
+      "pid": 2,
+      "name": "P2_EditorTexto",
+      "arrivalTick": 2,
+      "priority": 1,
+      "memory_requirements": {
+        "executableSize": 1024,
+        "dataSegmentPercent": 15,
+        "variableMemoryPercent": 25
+      },
+      "execution": {
+        "estimatedBurstTime": 25
+      },
+      "manual_instructions": [
+        { "type": "CPU", "duration": 5 },
+        { "type": "IO", "duration": "MANUAL_WAIT", "device": "KEYBOARD", "action": "WAIT_FOR_SIGNAL" },
+        { "type": "CPU", "duration": 20 }
+      ]
+    }
+  ]
+}

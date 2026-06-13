@@ -1,1 +1,0 @@
-# simulation — Motor de simulación
