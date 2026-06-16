@@ -1,21 +1,20 @@
-#include "json_reader.hpp"
-#include "json_writer.hpp"
-#include "simulator.hpp"
 #include <iostream>
 #include <string>
 
-int main(int argc, char* argv[]) {
+#include "json_reader.hpp"
+#include "json_writer.hpp"
+#include "simulator.hpp"
+
+int main(int argc, char *argv[]) {
     // ── Parse arguments ──────────────────────────────────────────────────────
-    std::string inputFile  = "escenario_modelo.json";
-    std::string outputFile = "output.json";
+    std::string inputFile = "../shared_data/input.json";
+    std::string outputFile = "../shared_data/output.json";
     int maxTicks = 200;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if ((arg == "-i" || arg == "--input") && i + 1 < argc)
-            inputFile = argv[++i];
-        else if ((arg == "-o" || arg == "--output") && i + 1 < argc)
-            outputFile = argv[++i];
+        if ((arg == "-i" || arg == "--input") && i + 1 < argc) inputFile = argv[++i];
+        else if ((arg == "-o" || arg == "--output") && i + 1 < argc) outputFile = argv[++i];
         else if ((arg == "-t" || arg == "--ticks") && i + 1 < argc)
             maxTicks = std::stoi(argv[++i]);
         else if (arg == "-h" || arg == "--help") {
@@ -30,9 +29,9 @@ int main(int argc, char* argv[]) {
     std::cout << "===========================================\n";
     std::cout << "  OS Simulator - Proyecto Final\n";
     std::cout << "===========================================\n";
-    std::cout << "Input  : " << inputFile  << "\n";
+    std::cout << "Input  : " << inputFile << "\n";
     std::cout << "Output : " << outputFile << "\n";
-    std::cout << "MaxTicks: " << maxTicks   << "\n\n";
+    std::cout << "MaxTicks: " << maxTicks << "\n\n";
 
     // ── Load input JSON ──────────────────────────────────────────────────────
     JsonReader reader;
@@ -41,7 +40,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const SimConfig& cfg = reader.config();
+    const SimConfig &cfg = reader.config();
     std::cout << "Scenario  : " << cfg.name << "\n";
     std::cout << "Scheduler : " << algoToString(cfg.scheduler) << "\n";
     std::cout << "Memory    : " << cfg.totalMemoryMB << " MB\n";
@@ -49,8 +48,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Events    : " << cfg.events.size() << "\n\n";
 
     // ── Create writer ────────────────────────────────────────────────────────
-    JsonWriter writer(cfg.name, algoToString(cfg.scheduler),
-                      cfg.totalMemoryMB, cfg.numCores);
+    JsonWriter writer(cfg.name, algoToString(cfg.scheduler), cfg.totalMemoryMB, cfg.numCores);
 
     // ── Run simulation ───────────────────────────────────────────────────────
     Simulator sim(cfg);
@@ -63,8 +61,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Completed processes : " << sim.completedProcesses() << "\n";
     std::cout << "Context switches    : " << sim.totalContextSwitches() << "\n";
     std::cout << "Avg turnaround      : " << sim.avgTurnaround() << " ticks\n";
-    std::cout << "Avg waiting         : " << sim.avgWaiting()    << " ticks\n";
-    std::cout << "Avg response        : " << sim.avgResponse()   << " ticks\n";
+    std::cout << "Avg waiting         : " << sim.avgWaiting() << " ticks\n";
+    std::cout << "Avg response        : " << sim.avgResponse() << " ticks\n";
 
     // ── Write output JSON ────────────────────────────────────────────────────
     if (!writer.write(outputFile)) {

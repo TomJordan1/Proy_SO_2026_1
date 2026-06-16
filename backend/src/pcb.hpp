@@ -1,7 +1,8 @@
 #pragma once
-#include "types.hpp"
-#include <string>
 #include <optional>
+#include <string>
+
+#include "types.hpp"
 
 // ─── Registers saved during context switch ──────────────────────────────────
 struct Registers {
@@ -11,46 +12,46 @@ struct Registers {
 // ─── Process Control Block ───────────────────────────────────────────────────
 struct PCB {
     // Identity
-    int         pid;
+    int pid;
     std::string name;
     ProcessType type;
 
     // State
-    ProcessState state       = ProcessState::NEW;
+    ProcessState state = ProcessState::NEW;
 
     // CPU context
-    int         pc           = 0;   // Program Counter (logical, in ticks/instructions)
-    Registers   registers;
+    int pc = 0; // Program Counter (logical, in ticks/instructions)
+    Registers registers;
 
     // Scheduling info
-    int         priority;
-    int         burstTime;
-    int         remainingTime;
-    int         quantumUsed  = 0;
+    int priority;
+    int burstTime;
+    int remainingTime;
+    int quantumUsed = 0;
 
     // MLFQ level (0 = highest)
-    int         mlfqLevel    = 0;
+    int mlfqLevel = 0;
 
     // Timing
-    int         arrivalTick  = 0;
-    int         waitingTime  = 0;
-    int         responseTime = -1;  // -1 = not yet responded
-    int         startTick    = -1;  // first time it entered RUNNING
-    int         finishTick   = -1;
-    int         turnaround   = 0;
+    int arrivalTick = 0;
+    int waitingTime = 0;
+    int responseTime = -1; // -1 = not yet responded
+    int startTick = -1;    // first time it entered RUNNING
+    int finishTick = -1;
+    int turnaround = 0;
 
     // Memory
-    int         memorySizeMB        = 0;
-    int         memoryBaseAddress   = 0;  // physical base in MB
-    int         stackPointer        = 0;
-    int         heapPointer         = 0;
+    int memorySizeMB = 0;
+    int memoryBaseAddress = 0; // physical base in MB
+    int stackPointer = 0;
+    int heapPointer = 0;
 
     // I/O
-    std::optional<std::string> ioDevice;   // device being waited on
-    int         ioRemainingTicks = 0;
+    std::optional<std::string> ioDevice; // device being waited on
+    int ioRemainingTicks = 0;
 
     // Error
-    ErrorCode   errorCode    = ErrorCode::NONE;
+    ErrorCode errorCode = ErrorCode::NONE;
 
     // CPU assignment
     std::optional<int> cpuId;
