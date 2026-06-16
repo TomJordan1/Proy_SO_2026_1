@@ -64,9 +64,16 @@ def _value_color(value: float, good: float, bad: float, higher: bool) -> str:
 class _MetricCard(QFrame):
     """A card showing a single metric: big value + label below."""
 
-    def __init__(self, label: str, unit: str, parent=None):
+    def __init__(self, key: str, label: str, unit: str, parent=None):
         super().__init__(parent)
+        self._key = key
         self._unit  = unit
+        self._toggled = False
+        self._last_raw = None
+        self._last_color = Colors.TEXT_MUTED
+        if key == "throughput":
+            self.setCursor(Qt.PointingHandCursor)
+            
         self.setFrameShape(QFrame.StyledPanel)
         self.setStyleSheet(
             f"""
@@ -101,15 +108,26 @@ class _MetricCard(QFrame):
         layout.addWidget(self._label_lbl)
         layout.addStretch()
 
+    def mousePressEvent(self, event):
+        if self._key == "throughput" and event.button() == Qt.LeftButton:
+            self._toggled = not self._toggled
+            self.set_value(self._last_raw, self._last_color)
+
     def set_value(self, value: float | None, color: str) -> None:
+        self._last_raw = value
+        self._last_color = color
         if value is None:
             self._value_lbl.setText("—")
             self._value_lbl.setStyleSheet(
                 f"color:{Colors.TEXT_MUTED}; font-size:12pt; font-weight:700;"
             )
         else:
-            # Format: show 2 decimal for small floats, integer otherwise
-            if self._unit == "%" or isinstance(value, float):
+            if self._key == "throughput":
+                if self._toggled:
+                    text = f"{value * 100.0:.1f}p/100t"
+                else:
+                    text = f"{value:.3f}p/t"
+            elif self._unit == "%" or isinstance(value, float):
                 text = f"{value:.1f}{self._unit}"
             else:
                 text = f"{int(value)}{self._unit}"
@@ -172,7 +190,7 @@ class MetricsWidget(QWidget):
 
         self._cards: dict[str, _MetricCard] = {}
         for idx, (key, label, unit, *_rest) in enumerate(_METRICS):
-            card = _MetricCard(label, unit)
+            card = _MetricCard(key, label, unit)
             self._cards[key] = card
             grid.addWidget(card, idx // 4, idx % 4)
 
@@ -193,7 +211,5 @@ class MetricsWidget(QWidget):
                 card.set_value(None, Colors.TEXT_MUTED)
             else:
                 value = float(raw)
-                if key == "throughput":
-                    value *= 100.0
                 color = _value_color(value, good, bad, higher)
                 card.set_value(value, color)
