@@ -131,9 +131,10 @@ class _MetricCard(QFrame):
                 text = f"{value:.1f}{self._unit}"
             else:
                 text = f"{int(value)}{self._unit}"
+            font_size = 12 if len(text) <= 5 else (10 if len(text) <= 7 else 8)
             self._value_lbl.setText(text)
             self._value_lbl.setStyleSheet(
-                f"color:{color}; font-size:12pt; font-weight:700;"
+                f"color:{color}; font-size:{font_size}pt; font-weight:700;"
             )
 
         # Highlight card border with the same colour

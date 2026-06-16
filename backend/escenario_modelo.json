@@ -2,7 +2,7 @@
   "metadata": {
     "name": "Simulación OS Completa - Proyecto Final",
     "executionDate": "2026-06-16",
-    "executionTime": "10:35:38",
+    "executionTime": "10:49:45",
     "realTimeTrackingEnabled": false,
     "availableAlgorithms": [
       "FCFS",
@@ -71,7 +71,7 @@
   "processes": [
     {
       "name": "System Idle Proc",
-      "burst_time": 21,
+      "burst_time": 58,
       "priority": 2,
       "memory_size": 4,
       "process_type": "SYSTEM",
@@ -79,155 +79,155 @@
     },
     {
       "name": "System",
-      "burst_time": 13,
+      "burst_time": 60,
       "priority": 2,
       "memory_size": 4,
       "process_type": "SYSTEM",
-      "arrival_tick": 166
+      "arrival_tick": 189
     },
     {
       "name": "proc",
-      "burst_time": 16,
+      "burst_time": 56,
       "priority": 6,
       "memory_size": 64,
       "process_type": "CPU_BOUND",
-      "arrival_tick": 236
-    },
-    {
-      "name": "RuntimeBroker.ex",
-      "burst_time": 58,
-      "priority": 5,
-      "memory_size": 4,
-      "process_type": "CPU_BOUND",
-      "arrival_tick": 19
-    },
-    {
-      "name": "Registry",
-      "burst_time": 23,
-      "priority": 2,
-      "memory_size": 59,
-      "process_type": "SYSTEM",
-      "arrival_tick": 173
-    },
-    {
-      "name": "svchost.exe",
-      "burst_time": 31,
-      "priority": 5,
-      "memory_size": 4,
-      "process_type": "SYSTEM",
-      "arrival_tick": 53
-    },
-    {
-      "name": "svchost.exe",
-      "burst_time": 36,
-      "priority": 2,
-      "memory_size": 10,
-      "process_type": "SYSTEM",
-      "arrival_tick": 81
-    },
-    {
-      "name": "smss.exe",
-      "burst_time": 13,
-      "priority": 2,
-      "memory_size": 4,
-      "process_type": "SYSTEM",
-      "arrival_tick": 53
-    },
-    {
-      "name": "svchost.exe",
-      "burst_time": 37,
-      "priority": 2,
-      "memory_size": 18,
-      "process_type": "SYSTEM",
       "arrival_tick": 113
     },
     {
-      "name": "backgroundTaskHo",
-      "burst_time": 23,
+      "name": "RuntimeBroker.ex",
+      "burst_time": 54,
       "priority": 5,
       "memory_size": 4,
       "process_type": "CPU_BOUND",
-      "arrival_tick": 234
+      "arrival_tick": 29
     },
     {
-      "name": "csrss.exe",
-      "burst_time": 27,
+      "name": "Registry",
+      "burst_time": 74,
       "priority": 2,
-      "memory_size": 4,
+      "memory_size": 59,
       "process_type": "SYSTEM",
-      "arrival_tick": 14
-    },
-    {
-      "name": "wininit.exe",
-      "burst_time": 24,
-      "priority": 2,
-      "memory_size": 5,
-      "process_type": "SYSTEM",
-      "arrival_tick": 225
-    },
-    {
-      "name": "svchost.exe",
-      "burst_time": 69,
-      "priority": 5,
-      "memory_size": 4,
-      "process_type": "SYSTEM",
-      "arrival_tick": 108
-    },
-    {
-      "name": "services.exe",
-      "burst_time": 60,
-      "priority": 2,
-      "memory_size": 15,
-      "process_type": "SYSTEM",
-      "arrival_tick": 210
-    },
-    {
-      "name": "LsaIso.exe",
-      "burst_time": 20,
-      "priority": 6,
-      "memory_size": 4,
-      "process_type": "CPU_BOUND",
-      "arrival_tick": 157
-    },
-    {
-      "name": "lsass.exe",
-      "burst_time": 44,
-      "priority": 2,
-      "memory_size": 31,
-      "process_type": "SYSTEM",
-      "arrival_tick": 211
+      "arrival_tick": 53
     },
     {
       "name": "svchost.exe",
       "burst_time": 53,
+      "priority": 5,
+      "memory_size": 6,
+      "process_type": "SYSTEM",
+      "arrival_tick": 162
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 61,
+      "priority": 2,
+      "memory_size": 10,
+      "process_type": "SYSTEM",
+      "arrival_tick": 105
+    },
+    {
+      "name": "smss.exe",
+      "burst_time": 71,
+      "priority": 2,
+      "memory_size": 4,
+      "process_type": "SYSTEM",
+      "arrival_tick": 250
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 55,
+      "priority": 2,
+      "memory_size": 17,
+      "process_type": "SYSTEM",
+      "arrival_tick": 190
+    },
+    {
+      "name": "backgroundTaskHo",
+      "burst_time": 76,
+      "priority": 5,
+      "memory_size": 10,
+      "process_type": "CPU_BOUND",
+      "arrival_tick": 151
+    },
+    {
+      "name": "csrss.exe",
+      "burst_time": 61,
+      "priority": 2,
+      "memory_size": 4,
+      "process_type": "SYSTEM",
+      "arrival_tick": 247
+    },
+    {
+      "name": "wininit.exe",
+      "burst_time": 11,
+      "priority": 2,
+      "memory_size": 5,
+      "process_type": "SYSTEM",
+      "arrival_tick": 34
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 74,
+      "priority": 5,
+      "memory_size": 17,
+      "process_type": "SYSTEM",
+      "arrival_tick": 26
+    },
+    {
+      "name": "services.exe",
+      "burst_time": 67,
+      "priority": 2,
+      "memory_size": 15,
+      "process_type": "SYSTEM",
+      "arrival_tick": 182
+    },
+    {
+      "name": "LsaIso.exe",
+      "burst_time": 72,
+      "priority": 6,
+      "memory_size": 4,
+      "process_type": "CPU_BOUND",
+      "arrival_tick": 197
+    },
+    {
+      "name": "lsass.exe",
+      "burst_time": 40,
+      "priority": 2,
+      "memory_size": 31,
+      "process_type": "SYSTEM",
+      "arrival_tick": 111
+    },
+    {
+      "name": "svchost.exe",
+      "burst_time": 20,
       "priority": 2,
       "memory_size": 38,
       "process_type": "SYSTEM",
-      "arrival_tick": 243
+      "arrival_tick": 199
     },
     {
       "name": "fontdrvhost.exe",
-      "burst_time": 16,
+      "burst_time": 31,
       "priority": 6,
       "memory_size": 4,
       "process_type": "CPU_BOUND",
-      "arrival_tick": 21
+      "arrival_tick": 13
     },
     {
       "name": "WUDFHost.exe",
-      "burst_time": 23,
+      "burst_time": 52,
       "priority": 6,
       "memory_size": 4,
       "process_type": "CPU_BOUND",
-      "arrival_tick": 231
+      "arrival_tick": 44
     },
     {
       "name": "SecurityHealthSy",
-      "burst_time": 49,
+      "burst_time": 35,
       "priority": 5,
       "memory_size": 4,
       "process_type": "CPU_BOUND",
-      "arrival_tick": 126
+      "arrival_tick": 67
     }
   ]
 }
