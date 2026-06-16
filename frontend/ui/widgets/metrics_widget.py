@@ -27,7 +27,7 @@ from ui.styles import Colors
 #              higher_is_better)
 _METRICS: list[tuple] = [
     ("cpu_utilization",    "CPU Utilization",    "%",  80.0,  40.0,  True),
-    ("throughput",         "Throughput",         "p/s", 1.0,   0.1,  True),
+    ("throughput",         "Throughput",         "p/100t", 1.0,   0.1,  True),
     ("avg_turnaround",     "Avg Turnaround",     "t",   50.0, 200.0, False),
     ("avg_waiting_time",   "Avg Waiting",        "t",   20.0, 100.0, False),
     ("avg_response_time",  "Avg Response",       "t",   10.0,  60.0, False),
@@ -193,5 +193,7 @@ class MetricsWidget(QWidget):
                 card.set_value(None, Colors.TEXT_MUTED)
             else:
                 value = float(raw)
+                if key == "throughput":
+                    value *= 100.0
                 color = _value_color(value, good, bad, higher)
                 card.set_value(value, color)
