@@ -679,10 +679,33 @@ class ConfigDialog(QDialog):
                         ptype = 'INTERACTIVE'
                     else:
                         ptype = 'CPU_BOUND'
+                    import random
+                    
+                    nice_val = info.get('nice')
+                    # Windows priority mapping to PatatOS 0-9 (0=Highest, 9=Lowest)
+                    if nice_val == psutil.REALTIME_PRIORITY_CLASS:
+                        prio = 0
+                    elif nice_val == psutil.HIGH_PRIORITY_CLASS:
+                        prio = 2
+                    elif nice_val == getattr(psutil, 'ABOVE_NORMAL_PRIORITY_CLASS', 32768):
+                        prio = 3
+                    elif nice_val == psutil.NORMAL_PRIORITY_CLASS:
+                        prio = 5
+                    elif nice_val == getattr(psutil, 'BELOW_NORMAL_PRIORITY_CLASS', 16384):
+                        prio = 7
+                    elif nice_val == psutil.IDLE_PRIORITY_CLASS:
+                        prio = 9
+                    else:
+                        # Fallback heuristic based on ptype if nice is unavailable
+                        if ptype == 'SYSTEM': prio = 2
+                        elif ptype == 'IO_BOUND': prio = 4
+                        elif ptype == 'INTERACTIVE': prio = 3
+                        else: prio = 6
+
                     procs.append({
                         'name': name,
-                        'burst_time': 20,
-                        'priority': 5,
+                        'burst_time': random.randint(10, 80),
+                        'priority': prio,
                         'memory_size': rss_mb,
                         'process_type': ptype,
                     })
