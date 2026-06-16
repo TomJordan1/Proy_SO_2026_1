@@ -224,9 +224,7 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
     tickObj["waiting"] = serializeWaiting(snap.waitingList);
 
     // Process table
-    json ptable = serializeProcessTable(snap.processTable);
-    tickObj["all_processes"]  = ptable;   // legacy key
-    tickObj["process_table"]  = ptable;   // canonical key
+    tickObj["process_table"] = serializeProcessTable(snap.processTable);
 
     // Memory
     if (snap.memory) {
