@@ -1,127 +1,247 @@
 {
-  "metadata": {
-    "name": "Simulación OS Completa - Proyecto Final",
-    "executionDate": "2026-06-03",
-    "executionTime": "21:39:40-05:00",
-    "realTimeTrackingEnabled": false,
-    "availableAlgorithms": ["FCFS", "SJF", "ROUND_ROBIN", "PRIORITIES"]
-  },
-  
-  "hardware": {
-    "cpuCount": 1,
-    "physical_memory": {
-      "totalSize": 4096,
-      "osReservedSize": 512, 
-      "blockSize": 32, 
-      "managementMethod": "BITMAP", 
-      "allocationStrategy": "FIRST_FIT" 
+    "metadata": {
+        "name": "Simulaci\u00f3n OS Completa - Proyecto Final",
+        "executionDate": "2026-06-16",
+        "executionTime": "16:35:04",
+        "realTimeTrackingEnabled": false,
+        "availableAlgorithms": [
+            "FCFS",
+            "SJF",
+            "SRTF",
+            "Priority",
+            "RR",
+            "MLFQ"
+        ],
+        "processSource": "psutil"
     },
-    "virtual_memory_config": {
-      "enabled": false,
-      "architecture": "32BIT",
-      "pageSizeKB": 4,
-      "pageTableStructure": "MULTILEVEL",
-      "mmu": {
-        "enabled": true,
-        "tlb": { "enabled": true, "hitRatePercentage": 90, "lookupTimeNs": 2 }
-      },
-      "storage": { "type": "SSD", "readLatencyMs": 0.1, "writeLatencyMs": 0.1 },
-      "pageReplacement": {
-        "algorithm": "WSClock"
-      },
-      "pageFaults": { "softFaultProbability": 0.05, "hardFaultProbability": 0.02 }
+    "hardware": {
+        "cpu": {
+            "numCores": 1,
+            "scheduler": "RR",
+            "preemptive": true,
+            "quantum": 4,
+            "contextSwitchCostTicks": 1
+        },
+        "memory": {
+            "totalMB": 1024,
+            "osReservedMB": 64,
+            "minSegmentMB": 4,
+            "maxProcessMB": 256,
+            "allocationStrategy": "FIRST_FIT",
+            "mmuEnabled": true
+        },
+        "ioDevices": [
+            {
+                "id": "KEYBOARD",
+                "latency": 7
+            },
+            {
+                "id": "DISK",
+                "latency": 15
+            },
+            {
+                "id": "PRINTER",
+                "latency": 20
+            },
+            {
+                "id": "NETWORK",
+                "latency": 30
+            },
+            {
+                "id": "USB",
+                "latency": 12
+            }
+        ]
     },
-    "dma_controller": {
-      "enabled": true,
-      "transferCounterMode": "DECREMENT_TO_ZERO",
-      "burstSizeKB": 64
+    "simulation": {
+        "speedMS": 800,
+        "errorProbabilityPct": 0.5,
+        "errorProbabilityDecimal": 0.005,
+        "ioFreqMultiplier": 1.0,
+        "aging": {
+            "enabled": true,
+            "interval": 20
+        },
+        "autoCreate": {
+            "enabled": false,
+            "maxTicks": 0
+        },
+        "cpuBoundRatio": 0.4
     },
-    "ioDevices": [
-      { "id": "KEYBOARD", "name": "Teclado", "type": "INPUT", "interruptCode": 1, "signalAction": "PROMPT_CONTINUE_OR_CANCEL" },
-      { "id": "DISK", "name": "Disco Duro", "type": "STORAGE", "interruptCode": 2, "useDMA": true },
-      { "id": "PRINTER", "name": "Impresora", "type": "OUTPUT", "interruptCode": 3 },
-      { "id": "MOUSE", "name": "Mouse", "type": "INPUT", "interruptCode": 4 },
-      { "id": "NETWORK", "name": "Tarjeta de Red", "type": "NETWORK", "interruptCode": 5, "useDMA": true }
+    "processes": [
+        {
+            "name": "Sistema",
+            "burst_time": 10,
+            "priority": 0,
+            "memory_size": 16,
+            "process_type": "SYSTEM",
+            "arrival_tick": 0
+        },
+        {
+            "name": "Kernel",
+            "burst_time": 8,
+            "priority": 0,
+            "memory_size": 12,
+            "process_type": "SYSTEM",
+            "arrival_tick": 211
+        },
+        {
+            "name": "svchost",
+            "burst_time": 15,
+            "priority": 1,
+            "memory_size": 24,
+            "process_type": "SYSTEM",
+            "arrival_tick": 7
+        },
+        {
+            "name": "Explorador",
+            "burst_time": 30,
+            "priority": 3,
+            "memory_size": 48,
+            "process_type": "INTERACTIVE",
+            "arrival_tick": 137
+        },
+        {
+            "name": "Navegador",
+            "burst_time": 45,
+            "priority": 2,
+            "memory_size": 128,
+            "process_type": "INTERACTIVE",
+            "arrival_tick": 128
+        },
+        {
+            "name": "Editor",
+            "burst_time": 25,
+            "priority": 3,
+            "memory_size": 64,
+            "process_type": "CPU_BOUND",
+            "arrival_tick": 20
+        },
+        {
+            "name": "Compilador",
+            "burst_time": 80,
+            "priority": 4,
+            "memory_size": 96,
+            "process_type": "CPU_BOUND",
+            "arrival_tick": 179
+        },
+        {
+            "name": "Database",
+            "burst_time": 20,
+            "priority": 2,
+            "memory_size": 80,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 172
+        },
+        {
+            "name": "Servidor",
+            "burst_time": 60,
+            "priority": 2,
+            "memory_size": 64,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 104
+        },
+        {
+            "name": "Logger",
+            "burst_time": 12,
+            "priority": 5,
+            "memory_size": 8,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 160
+        },
+        {
+            "name": "Antivirus",
+            "burst_time": 40,
+            "priority": 4,
+            "memory_size": 32,
+            "process_type": "CPU_BOUND",
+            "arrival_tick": 60
+        },
+        {
+            "name": "Backup",
+            "burst_time": 90,
+            "priority": 6,
+            "memory_size": 48,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 169
+        },
+        {
+            "name": "Player",
+            "burst_time": 35,
+            "priority": 3,
+            "memory_size": 96,
+            "process_type": "INTERACTIVE",
+            "arrival_tick": 165
+        },
+        {
+            "name": "Terminal",
+            "burst_time": 18,
+            "priority": 2,
+            "memory_size": 16,
+            "process_type": "INTERACTIVE",
+            "arrival_tick": 36
+        },
+        {
+            "name": "Updater",
+            "burst_time": 50,
+            "priority": 7,
+            "memory_size": 32,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 199
+        },
+        {
+            "name": "Scheduler",
+            "burst_time": 10,
+            "priority": 1,
+            "memory_size": 8,
+            "process_type": "SYSTEM",
+            "arrival_tick": 141
+        },
+        {
+            "name": "NetworkMgr",
+            "burst_time": 22,
+            "priority": 2,
+            "memory_size": 24,
+            "process_type": "IO_BOUND",
+            "arrival_tick": 46
+        },
+        {
+            "name": "UIServer",
+            "burst_time": 28,
+            "priority": 3,
+            "memory_size": 40,
+            "process_type": "INTERACTIVE",
+            "arrival_tick": 93
+        },
+        {
+            "name": "CryptoSvc",
+            "burst_time": 55,
+            "priority": 4,
+            "memory_size": 32,
+            "process_type": "CPU_BOUND",
+            "arrival_tick": 154
+        },
+        {
+            "name": "MemMgr",
+            "burst_time": 8,
+            "priority": 1,
+            "memory_size": 12,
+            "process_type": "SYSTEM",
+            "arrival_tick": 67
+        }
+    ],
+    "events": [
+        {
+            "tick": 65,
+            "type": "KEYBOARD",
+            "pid": 17,
+            "action": "CONTINUE"
+        },
+        {
+            "tick": 77,
+            "type": "KEYBOARD",
+            "pid": 17,
+            "action": "CONTINUE"
+        }
     ]
-  },
-
-  "os_config": {
-    "operating_mode": {
-      "useVirtualMemory": false 
-    },
-    "scheduler": {
-      "algorithm": "ROUND_ROBIN",
-      "context": "PREEMPTIVE", 
-      "quantum": 4,
-      "contextSwitchTimeTicks": 1
-    },
-    "pcb_structure": {
-      "numberOfFields": 12,
-      "memoryFootprintBytes": 128
-    },
-    "process_generation": {
-      "mode": "MANUAL", 
-      "randomCountTarget": 20 
-    },
-    "simulation_parameters": {
-      "errorRatePercentage": 0.5, 
-      "randomInterrupts": {
-        "enabled": true,
-        "minCount": 10,
-        "maxCount": 20,
-        "minDuration": 5,
-        "maxDuration": 20,
-        "dependentOnBurstTime": true
-      }
-    }
-  },
-
-  "processes": [
-    {
-      "pid": 1,
-      "name": "P1_Navegador",
-      "arrivalTick": 0,
-      "priority": 2,
-      "memory_requirements": {
-        "executableSize": 512,
-        "dataSegmentPercent": 10,
-        "dynamic_memory": {
-          "stackPercent": 10,
-          "heapPercent": 10
-        }
-      },
-      "execution": {
-        "estimatedBurstTime": 45
-      },
-      "manual_instructions": [
-        { "type": "CPU", "duration": 10 },
-        { "type": "IO", "duration": 5, "device": "DISK" },
-        { "type": "CPU", "duration": 15 },
-        { "type": "IO", "duration": 3, "device": "NETWORK" },
-        { "type": "CPU", "duration": 12 }
-      ]
-    },
-    {
-      "pid": 2,
-      "name": "P2_EditorTexto",
-      "arrivalTick": 2,
-      "priority": 1,
-      "memory_requirements": {
-        "executableSize": 1024,
-        "dataSegmentPercent": 15,
-        "dynamic_memory": {
-          "stackPercent": 15,
-          "heapPercent": 10
-        }
-      },
-      "execution": {
-        "estimatedBurstTime": 25
-      },
-      "manual_instructions": [
-        { "type": "CPU", "duration": 5 },
-        { "type": "IO", "duration": "MANUAL_WAIT", "device": "KEYBOARD", "action": "WAIT_FOR_SIGNAL" },
-        { "type": "CPU", "duration": 20 }
-      ]
-    }
-  ]
 }

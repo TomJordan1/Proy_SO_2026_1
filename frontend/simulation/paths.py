@@ -9,10 +9,10 @@ BACKEND_DIR = os.path.join(PROJECT_ROOT, "backend")
 
 # TODO: En el futuro, cambiar SHARED_DATA_DIR a os.path.join(PROJECT_ROOT, "shared_data")
 # cuando el motor en C++ esté configurado para leer de ahí.
-SHARED_DATA_DIR = BACKEND_DIR
+SHARED_DATA_DIR = os.path.join(PROJECT_ROOT, "shared_data")
 
 # Archivos de comunicación
-ESCENARIO_PATH = os.path.join(SHARED_DATA_DIR, "escenario_modelo.json")
+ESCENARIO_PATH = os.path.join(SHARED_DATA_DIR, "input.json")
 OUTPUT_PATH = os.path.join(SHARED_DATA_DIR, "output.json")
 
 # Ejecutable del simulador
