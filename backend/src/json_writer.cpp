@@ -224,7 +224,9 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
     tickObj["waiting"] = serializeWaiting(snap.waitingList);
 
     // Process table
-    tickObj["all_processes"] = serializeProcessTable(snap.processTable);
+    json ptable = serializeProcessTable(snap.processTable);
+    tickObj["all_processes"]  = ptable;   // legacy key
+    tickObj["process_table"]  = ptable;   // canonical key
 
     // Memory
     if (snap.memory) {
@@ -238,6 +240,13 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
 
     // Metrics
     tickObj["metrics"] = serializeMetrics(snap);
+
+    // Console logs from this tick
+    json logsArr = json::array();
+    for (const auto& msg : snap.consoleLogs) {
+        logsArr.push_back(msg);
+    }
+    tickObj["console_logs"] = logsArr;
 
     output_["ticks"].push_back(tickObj);
 }

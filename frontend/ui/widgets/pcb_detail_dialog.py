@@ -328,6 +328,13 @@ class PCBDetailDialog(QDialog):
             self._val_labels[label] = val_lbl
             fields_layout.addLayout(row_layout)
 
+        # Inyectar finish_time matemáticamente si no viene del backend
+        if proc.get("state") == "TERMINATED" and "finish_time" not in proc:
+            arr = proc.get("arrival_tick", proc.get("arrival_time", 0))
+            turn = proc.get("turnaround_time", proc.get("turnaround", 0))
+            if turn > 0:
+                proc["finish_time"] = arr + turn
+
         add("PID",                   "pid")
         add("Nombre",                "name", "process_name")
         add("Tipo de Proceso",       "process_type", "type")

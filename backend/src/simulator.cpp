@@ -155,12 +155,11 @@ void Simulator::processIOCompletions(int tick) {
 // ─── dispatchCPUs ────────────────────────────────────────────────────────────
 void Simulator::dispatchCPUs(int tick) {
     for (auto& core : cores_) {
-        // Skip cores that are mid-switch or already running a process
+        // Skip cores that are mid-switch
         if (core.switching) continue;
-        if (core.current && core.current->state == ProcessState::RUNNING) continue;
 
-        // Preemptive: check if a better process arrived (SRTF, Priority)
-        if (core.current && cfg_.preemptive) {
+        // Preemptive: check if a better process arrived (SRTF, Priority) or Quantum expired
+        if (core.current && core.current->state == ProcessState::RUNNING && cfg_.preemptive) {
             bool shouldPreempt = false;
             if (cfg_.scheduler == SchedulerAlgo::SRTF) {
                 // Check if any ready process has shorter remaining time
@@ -183,10 +182,7 @@ void Simulator::dispatchCPUs(int tick) {
                     }
                     if (shouldPreempt) break;
                 }
-            } else if (cfg_.scheduler == SchedulerAlgo::RR) {
-                if (core.current->quantumUsed >= cfg_.quantum) {
-                    shouldPreempt = true;
-                }
+            // Note: RR quantum preemption is handled directly in executeOneCPUTick
             }
 
             if (shouldPreempt) {
@@ -217,10 +213,9 @@ void Simulator::dispatchCPUs(int tick) {
         lastCtxEvent_.toState = "RUNNING";
         lastCtxEvent_.fromState = "READY";
 
-        log("[T=" + std::to_string(tick) + "] CPU" + std::to_string(core.id) +
-            ": CTX-IN P" + std::to_string(next->pid) + " (" + next->name + ")" +
-            " prio=" + std::to_string(next->priority) +
-            " rem=" + std::to_string(next->remainingTime) + "t");
+        log("[T=" + std::to_string(tick) + "] [CTX SWITCH] CPU" + std::to_string(core.id) +
+            " -> Entra P" + std::to_string(next->pid) + " (" + next->name + ")" +
+            (core.switching ? " (Overhead: " + std::to_string(cfg_.contextSwitchCost) + "t)" : ""));
     }
 }
 
@@ -245,6 +240,19 @@ void Simulator::executeOneCPUTick(int tick) {
         p->remainingTime--;
         p->quantumUsed++;
         busyCoreTicks_++;
+
+        // ── Quantum expiry (RR): preempt immediately after this tick ─────────
+        if ((cfg_.scheduler == SchedulerAlgo::RR || cfg_.scheduler == SchedulerAlgo::MLFQ)
+            && p->quantumUsed >= cfg_.quantum
+            && p->remainingTime > 0)
+        {
+            log("[T=" + std::to_string(tick) + "] QUANTUM_EXP P" +
+                std::to_string(p->pid) + " (" + p->name + ")" +
+                " [" + std::to_string(p->quantumUsed) + "/" + std::to_string(cfg_.quantum) + " ticks]");
+            scheduler_.requeue(p, readyQueues_);
+            core.current = nullptr;
+            continue;
+        }
 
         // Random I/O interruption for IO_BOUND and INTERACTIVE processes
         {

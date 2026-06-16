@@ -174,12 +174,12 @@ class ConfigDialog(QDialog):
 
         g.addWidget(_lbl("Algoritmo de planificación:"), 1, 0)
         self.combo_sched = QComboBox()
-        self.combo_sched.addItems(["FCFS", "SJF", "SRTF", "Priority", "RR", "MLFQ (Beta)"])
+        self.combo_sched.addItems(["FCFS", "SJF", "Round Robin", "Prioridades"])
         self.combo_sched.setFixedWidth(180)
         self.combo_sched.currentIndexChanged.connect(self._on_sched_changed)
         g.addWidget(self.combo_sched, 1, 1)
 
-        g.addWidget(_lbl("Quantum (ticks, para RR/MLFQ):"), 2, 0)
+        g.addWidget(_lbl("Quantum (ticks, para Round Robin):"), 2, 0)
         self.spin_quantum = QSpinBox()
         self.spin_quantum.setRange(1, 50)
         self.spin_quantum.setValue(4)
@@ -494,8 +494,15 @@ class ConfigDialog(QDialog):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _on_sched_changed(self, idx: int):
-        rr_algos = {4, 5}  # RR, MLFQ
-        self.spin_quantum.setEnabled(idx in rr_algos)
+        # 0=FCFS, 1=SJF, 2=RR, 3=Priority
+        is_rr = (idx == 2)
+        self.spin_quantum.setEnabled(is_rr)
+        # Auto-configure preemptive: RR and Priority are always preemptive
+        if idx in (2, 3):
+            self.chk_preemptive.setChecked(True)
+            self.chk_preemptive.setEnabled(False)
+        else:
+            self.chk_preemptive.setEnabled(True)
 
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
@@ -609,8 +616,7 @@ class ConfigDialog(QDialog):
         speeds = [2000, 800, 250, 80]
         alloc_map = {0: "first", 1: "best", 2: "worst"}
         sched_map = {
-            0: "FCFS", 1: "SJF", 2: "SRTF",
-            3: "Priority", 4: "RR", 5: "MLFQ",
+            0: "FCFS", 1: "SJF", 2: "RR", 3: "Priority",
         }
 
         manual_procs = (
@@ -706,10 +712,11 @@ class ConfigDialog(QDialog):
         else:
             proc_list = manual_procs
 
-        # Force arrival_tick = 0 for initial processes
-        for p in proc_list:
+        import random
+        # Evitar que todos lleguen en el tick 0
+        for i, p in enumerate(proc_list):
             if "arrival_tick" not in p:
-                p["arrival_tick"] = 0
+                p["arrival_tick"] = 0 if i == 0 else random.randint(2, len(proc_list) * 10 + 50)
 
         now = datetime.now()
         data = {

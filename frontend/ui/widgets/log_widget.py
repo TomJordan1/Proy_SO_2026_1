@@ -40,7 +40,7 @@ class LogWidget(QTextEdit):
             # Codificación simple de color basada en el contenido
             if "READY" in msg or "NEW" in msg:
                 fmt.setForeground(QColor(Colors.LOG_READY))
-            elif "RUNNING" in msg or "CTX" in msg or "PREEMPT" in msg:
+            elif "RUNNING" in msg or "CTX" in msg or "PREEMPT" in msg or "QUANTUM_EXP" in msg:
                 fmt.setForeground(QColor(Colors.LOG_RUNNING))
             elif "WAITING" in msg or "IO_REQ" in msg or "SYSCALL" in msg:
                 fmt.setForeground(QColor(Colors.LOG_WAITING))

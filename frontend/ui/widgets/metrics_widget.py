@@ -29,11 +29,11 @@ _METRICS: list[tuple] = [
     ("cpu_utilization",    "CPU Utilization",    "%",  80.0,  40.0,  True),
     ("throughput",         "Throughput",         "p/s", 1.0,   0.1,  True),
     ("avg_turnaround",     "Avg Turnaround",     "t",   50.0, 200.0, False),
-    ("avg_waiting",        "Avg Waiting",        "t",   20.0, 100.0, False),
-    ("avg_response",       "Avg Response",       "t",   10.0,  60.0, False),
+    ("avg_waiting_time",   "Avg Waiting",        "t",   20.0, 100.0, False),
+    ("avg_response_time",  "Avg Response",       "t",   10.0,  60.0, False),
     ("context_switches",   "Context Switches",   "",   50.0, 200.0,  False),
     ("starvation_events",  "Starvation Events",  "",    0.0,   5.0,  False),
-    ("error_rate",         "Error Rate",         "%",   0.0,   5.0,  False),
+    ("total_errors",       "Total Errors",       "",    0.0,   5.0,  False),
 ]
 
 # Colour for good / medium / bad

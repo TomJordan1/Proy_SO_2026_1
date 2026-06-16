@@ -87,6 +87,8 @@ class MainWindow(QMainWindow):
         self._playback_mode: bool = True
         self._playback_data: list = []
         self._playback_tick: int = 0
+        self._global_timeline: list = []
+        self._global_logs: list = []
         self.output_file = output_file
         
         # Leer escenario en vivo para overrides de UI (simulando que C++ respetó la config)
@@ -215,7 +217,7 @@ class MainWindow(QMainWindow):
         # Configuración en caliente
         tb.addWidget(_lbl("  Algoritmo:"))
         self.combo_sched = QComboBox()
-        self.combo_sched.addItems(["FCFS", "RoundRobin", "Priority", "Priority-RR"])
+        self.combo_sched.addItems(["FCFS", "SJF", "Round Robin", "Prioridades"])
         tb.addWidget(self.combo_sched)
 
         tb.addWidget(_lbl(" Q:"))
@@ -424,20 +426,27 @@ class MainWindow(QMainWindow):
                 self.clock.set_speed(speeds[1])
 
     def _sync_config_from_file(self):
-        if not os.path.exists("escenario_modelo.json"):
+        if not os.path.exists(ESCENARIO_PATH):
             return
         try:
-            with open("escenario_modelo.json", "r", encoding="utf-8") as f:
+            with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
                 scen = json.load(f)
-            
-            algo = scen.get("hardware", {}).get("algorithm", "FCFS")
-            q = scen.get("hardware", {}).get("quantum", 4)
-            mem = scen.get("hardware", {}).get("memory_strategy", "FirstFit")
-            
-            idx_sched = self.combo_sched.findText(algo)
+
+            cpu = scen.get("hardware", {}).get("cpu", {})
+            algo_raw = cpu.get("scheduler", "FCFS")
+            q    = cpu.get("quantum", 4)
+            mem_strategy = scen.get("hardware", {}).get("memory", {}).get("allocationStrategy", "FIRST_FIT")
+
+            # Map backend algo string to UI label
+            algo_map = {"FCFS": "FCFS", "SJF": "SJF", "RR": "Round Robin", "Priority": "Prioridades"}
+            algo_ui = algo_map.get(algo_raw, "FCFS")
+            idx_sched = self.combo_sched.findText(algo_ui)
             if idx_sched >= 0: self.combo_sched.setCurrentIndex(idx_sched)
             self.spin_q.setValue(q)
-            idx_mem = self.combo_mem.findText(mem)
+
+            mem_map = {"FIRST_FIT": "FirstFit", "BEST_FIT": "BestFit", "WORST_FIT": "WorstFit"}
+            mem_ui = mem_map.get(mem_strategy, "FirstFit")
+            idx_mem = self.combo_mem.findText(mem_ui)
             if idx_mem >= 0: self.combo_mem.setCurrentIndex(idx_mem)
         except Exception:
             pass
@@ -455,15 +464,26 @@ class MainWindow(QMainWindow):
         self.btn_pause.setEnabled(False)
         
         try:
-            with open("escenario_modelo.json", "r", encoding="utf-8") as f:
+            with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
                 scen = json.load(f)
-                
+
+            # Map UI label → backend string
+            algo_map = {"FCFS": "FCFS", "SJF": "SJF", "Round Robin": "RR", "Prioridades": "Priority"}
+            algo_backend = algo_map.get(self.combo_sched.currentText(), "FCFS")
+            mem_map = {"FirstFit": "FIRST_FIT", "BestFit": "BEST_FIT", "WorstFit": "WORST_FIT"}
+            mem_backend = mem_map.get(self.combo_mem.currentText(), "FIRST_FIT")
+
             if "hardware" not in scen:
                 scen["hardware"] = {}
-                
-            scen["hardware"]["algorithm"] = self.combo_sched.currentText()
-            scen["hardware"]["quantum"] = self.spin_q.value()
-            scen["hardware"]["memory_strategy"] = self.combo_mem.currentText()
+            if "cpu" not in scen["hardware"]:
+                scen["hardware"]["cpu"] = {}
+            if "memory" not in scen["hardware"]:
+                scen["hardware"]["memory"] = {}
+
+            scen["hardware"]["cpu"]["scheduler"] = algo_backend
+            scen["hardware"]["cpu"]["quantum"]   = self.spin_q.value()
+            scen["hardware"]["cpu"]["preemptive"] = algo_backend in ("RR", "Priority")
+            scen["hardware"]["memory"]["allocationStrategy"] = mem_backend
             
             with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=4)
@@ -656,8 +676,8 @@ class MainWindow(QMainWindow):
     def _infer_frontend_data(self, ticks: list):
         """Infiere el timeline de Gantt y los console_logs analizando cambios de estado entre fotogramas."""
         prev_states = {}
-        accumulated_timeline = []
-        accumulated_logs = []
+        self._global_timeline.clear()
+        self._global_logs.clear()
         
         for snap in ticks:
             tick_num = snap.get("tick", 0)
@@ -682,7 +702,7 @@ class MainWindow(QMainWindow):
                                 core_id = c.get("core_id")
                     
                     label = f"P{pid}({proc.get('name', 'P')})"
-                    accumulated_timeline.append({
+                    self._global_timeline.append({
                         "tick": tick_num,
                         "core_id": core_id if core_id is not None else 0,
                         "label": label,
@@ -691,18 +711,18 @@ class MainWindow(QMainWindow):
                     })
                     
                     if prev_state is None:
-                        accumulated_logs.append(f"[Tick {tick_num}] Proceso {label} creado (NEW).")
+                        self._global_logs.append(f"[T={tick_num}] {label} NEW.")
                     elif state == "RUNNING":
-                        accumulated_logs.append(f"[Tick {tick_num}] Proceso {label} despachado al CPU.")
+                        self._global_logs.append(f"[T={tick_num}] {label} RUNNING -> CPU.")
                     elif state == "TERMINATED":
-                        accumulated_logs.append(f"[Tick {tick_num}] Proceso {label} ha finalizado (TERMINATED).")
+                        self._global_logs.append(f"[T={tick_num}] {label} TERMINATED.")
                     else:
-                        accumulated_logs.append(f"[Tick {tick_num}] Proceso {label} pasó a {state}.")
+                        self._global_logs.append(f"[T={tick_num}] {label} -> {state}.")
                         
                     prev_states[pid] = state
             
-            snap["timeline"] = list(accumulated_timeline)
-            snap["console_logs"] = list(accumulated_logs)
+            snap["timeline_count"] = len(self._global_timeline)
+            snap["log_count"] = len(self._global_logs)
 
     def _on_load_json(self):
         import json
@@ -818,24 +838,32 @@ class MainWindow(QMainWindow):
         self.metrics_widget.update(snap["metrics"])
 
         # ── Timeline — support both list-of-dicts (new) and list-of-tuples (legacy) ──
-        timeline_raw = snap.get("timeline", [])
+        timeline_count = snap.get("timeline_count", 0)
+        timeline_raw = self._global_timeline[:timeline_count]
+        
+        # Formato legacy fallback (si alguna vez se inyecta legacy directo)
         if timeline_raw and isinstance(timeline_raw[0], (list, tuple)):
-            # Formato de tupla legacy: (tick, core_id, label, from_state, to_state)
             timeline_dicts = [
                 {"tick": t[0], "core_id": t[1], "label": t[2], "from_state": t[3], "to_state": t[4]}
                 for t in timeline_raw
             ]
         else:
             timeline_dicts = timeline_raw
+            
         self.timeline_widget.update(timeline_dicts, len(snap["cores"]))
 
-        # ── Log incremental ───────────────────────────────────────────────────
-        log_key = "console_logs" if "console_logs" in snap else "log"
-        log_list = snap.get(log_key, [])
-        new_msgs = log_list[self._log_offset:]
-        if new_msgs:
-            self.log_widget.append_messages(new_msgs)
-            self._log_offset = len(log_list)
+        # ── Log: primero logs directos del motor C++, si no los inferidos ────
+        console_logs = snap.get("console_logs", [])
+        if console_logs:
+            # Logs reales del backend: mostrar sólo los nuevos (del tick actual)
+            self.log_widget.append_messages(console_logs)
+        else:
+            # Fallback: logs inferidos de cambios de estado
+            log_count = snap.get("log_count", 0)
+            new_msgs = self._global_logs[self._log_offset:log_count]
+            if new_msgs:
+                self.log_widget.append_messages(new_msgs)
+                self._log_offset = log_count
 
         # ── Status bar ────────────────────────────────────────────────────────
         t    = snap["tick"]

@@ -376,10 +376,14 @@ class MemoryWidget(QWidget):
         self._bar.set_segments(segments, total_mb)
 
         # Stats cards
+        used  = stats.get("used_mb", 0)
+        free  = stats.get("free_mb", 0)
         frag  = stats.get("fragmentation")
-        used  = stats.get("used_mb")
-        free  = stats.get("free_mb")
-        strat = stats.get("strategy") or "—"
+        if frag is None:
+            frag = stats.get("fragmentation_percent")
+        if frag is None:
+            frag = 0.0
+        strat = stats.get("strategy", stats.get("allocation_strategy", "—"))
 
         self._set_val(self._s_frag,  f"{frag:.1f}%" if frag is not None else "—")
         self._set_val(self._s_used,  f"{used:.1f} MB" if used is not None else "—")

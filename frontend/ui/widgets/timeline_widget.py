@@ -39,11 +39,11 @@ class TimelineDrawWidget(QWidget):
             max_tick = max(t[0] for t in self.timeline)
             min_tick = min(t[0] for t in self.timeline)
             tick_span = max_tick - min_tick
-            needed_width = max(800, tick_span * 30 + 100)
+            needed_width = max(800, tick_span * 40 + 100)
             self.setMinimumWidth(needed_width)
             
-        # Adjust height based on number of cores
-        self.setMinimumHeight(max(130, self.num_cores * 100))
+        # Adjust height based on number of cores, give enough room for text
+        self.setMinimumHeight(max(180, self.num_cores * 160))
         self.update()
 
     def paintEvent(self, event):
@@ -77,36 +77,78 @@ class TimelineDrawWidget(QWidget):
             return
 
         fm = QFontMetrics(self.font())
-        for i, (tick, core_id, name, from_s, to_s) in enumerate(self.timeline):
+
+        # Agrupar eventos que están muy cerca visualmente
+        from collections import defaultdict
+        groups_per_core = defaultdict(list)
+        
+        for entry in self.timeline:
+            tick, core_id, name, from_s, to_s = entry
+            c_id = core_id if core_id is not None else 0
             x = x_offset + int(((tick - min_tick) / (max_tick - min_tick)) * width)
             
-            c_id = core_id if core_id is not None else 0
+            core_groups = groups_per_core[c_id]
+            if not core_groups:
+                core_groups.append({"x": x, "events": [entry]})
+            else:
+                last_group = core_groups[-1]
+                # Si está a menos de 45 px, se superpondría el texto horizontalmente
+                if x - last_group["x"] < 45:
+                    last_group["events"].append(entry)
+                else:
+                    core_groups.append({"x": x, "events": [entry]})
+
+        # Dibujar los grupos
+        for c_id, core_groups in groups_per_core.items():
             y_center = (c_id * lane_height) + (lane_height // 2)
             
-            # Determine color based on to_state
-            base_state = to_s.split("(")[0]
-            color_hex = STATE_COLORS.get(base_state, Colors.TEXT_MUTED)
-            color = QColor(color_hex)
-
-            painter.setBrush(color)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(x - 5, y_center - 5, 10, 10)
-
-            # Stagger text vertically to prevent overlapping
-            stagger = i % 3
-            y_text = y_center - 15 - (stagger * 15)
-            y_state = y_center + 20 + (stagger * 15)
-
-            # Draw text
-            painter.setPen(QColor(Colors.TEXT_SEC))
-            text = f"{name}"
-            tw = fm.horizontalAdvance(text)
-            painter.drawText(x - tw//2, y_text, text)
-            
-            state_text = to_s
-            sw = fm.horizontalAdvance(state_text)
-            painter.setPen(color)
-            painter.drawText(x - sw//2, y_state, state_text)
+            # Alternar ligeramente arriba y abajo para grupos contiguos si es necesario, 
+            # pero con 45px rara vez chocan, así que podemos mantenerlo simple.
+            for idx, grp in enumerate(core_groups):
+                x = grp["x"]
+                events = grp["events"]
+                
+                # Pequeño stagger solo de 2 niveles por si los textos son muy largos
+                stagger = idx % 2
+                y_text = y_center - 15 - (stagger * 12)
+                y_state = y_center + 20 + (stagger * 12)
+                
+                if len(events) == 1:
+                    tick, core_id, name, from_s, to_s = events[0]
+                    base_state = to_s.split("(")[0]
+                    color_hex = STATE_COLORS.get(base_state, Colors.TEXT_MUTED)
+                    color = QColor(color_hex)
+                    
+                    painter.setBrush(color)
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawEllipse(x - 5, y_center - 5, 10, 10)
+                    
+                    painter.setPen(QColor(Colors.TEXT_SEC))
+                    tw = fm.horizontalAdvance(name)
+                    painter.drawText(x - tw//2, y_text, name)
+                    
+                    painter.setPen(color)
+                    sw = fm.horizontalAdvance(to_s)
+                    painter.drawText(x - sw//2, y_state, to_s)
+                else:
+                    # Dibujar nodo colapsado
+                    painter.setBrush(QColor(Colors.TEXT_MUTED))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawEllipse(x - 6, y_center - 6, 12, 12)
+                    
+                    states = [e[4].split("(")[0] for e in events]
+                    most_common_state = max(set(states), key=states.count)
+                    
+                    label_top = f"+{len(events)} proc"
+                    label_bot = f"{most_common_state}"
+                    
+                    painter.setPen(QColor(Colors.TEXT_SEC))
+                    tw = fm.horizontalAdvance(label_top)
+                    painter.drawText(x - tw//2, y_text, label_top)
+                    
+                    painter.setPen(QColor(STATE_COLORS.get(most_common_state, Colors.TEXT_MUTED)))
+                    sw = fm.horizontalAdvance(label_bot)
+                    painter.drawText(x - sw//2, y_state, label_bot)
 
 class TimelineWidget(QWidget):
     def __init__(self, parent=None):
