@@ -33,8 +33,9 @@ from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGridLayout,
     QTableWidget, QTableWidgetItem, QHeaderView, QPlainTextEdit,
     QFrame, QScrollArea, QSizePolicy, QProgressBar, QGroupBox,
-    QSplitter
+    QSplitter, QToolTip,
 )
+from PySide6.QtCore import QPoint, QRectF
 
 from .styles import Colors, state_color, state_bg_color, process_color_by_pid
 
@@ -298,7 +299,7 @@ class ProcessChip(QFrame):
     """
     Tarjeta pequeña que representa un proceso en una cola.
 
-    Muestra: nombre, PID, estado y un indicador de color.
+    Muestra: nombre, PID, estado y un indicador de color.w  q
     """
 
     def __init__(self, name: str, pid: int, state: str, extra: str = "", parent=None):

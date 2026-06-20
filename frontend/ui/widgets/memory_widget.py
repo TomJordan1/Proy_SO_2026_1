@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 from ui.styles import Colors, pid_color
 
 
-# ── Segment-type → colour mapping ─────────────────────────────────────────────
+# ── Tipo de segmento → mapeo de colores ─────────────────────────────────────────────
 
 _SEG_COLORS: dict[str, str] = {
     "os":    Colors.MEM_OS,
@@ -64,7 +64,7 @@ def _seg_color(seg: Any) -> QColor:
     if is_free or seg_type == "free" or pid is None:
         return QColor(Colors.MEM_FREE)
 
-    # Process segments — use type-specific colors
+    # Segmento de procesos — use type-specific colors
     color_map = {
         "text":  Colors.MEM_TEXT,
         "data":  Colors.MEM_DATA,
@@ -74,7 +74,7 @@ def _seg_color(seg: Any) -> QColor:
     if seg_type in color_map:
         return QColor(color_map[seg_type])
 
-    # Unknown process segment — fall back to pid color
+    # Segmento del proceso desconocido — recurrir al pid color
     return QColor(pid_color(int(pid)))
 
 
@@ -101,21 +101,22 @@ def _seg_label(seg: Any) -> str:
     return stype
 
 
-# ── Memory bar canvas ─────────────────────────────────────────────────────────
+# ── Lienzo de la barra de memoria ─────────────────────────────────────────────────────────
 
 class _MemoryBar(QWidget):
     """QPainter canvas that draws the proportional memory bar."""
 
-    BAR_H     = 40     # bar height in px
-    LABEL_H   = 16     # label row height below bar
+    BAR_H     = 40     # altura de la barra en px
+    LABEL_H   = 16     # altura de la fila de etiquetas debajo de la barra
     TOTAL_H   = BAR_H + LABEL_H + 8
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._segments: list[dict] = []
-        self._total_kb: float = 1.0
+        self._total_mb: float = 1.0
         self._hover_seg: dict | None = None
         self._hover_pos: QPoint = QPoint()
+        self._seg_rects: list[tuple[int, int, Any]] = []  # (x, ancho, seg) cacheados
         self.setMinimumHeight(self.TOTAL_H)
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -124,14 +125,35 @@ class _MemoryBar(QWidget):
     def set_segments(self, segments: list, total_mb: int) -> None:
         self._segments = segments
         self._total_mb = max(total_mb, 1)
+        self._recalculate_rects()
         self.update()
 
-    # ── Mouse hover ───────────────────────────────────────────────────────────
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._recalculate_rects()
+
+    def _recalculate_rects(self) -> None:
+        
+        w = self.width()
+        rects = []
+        cumulative = 0.0
+        prev_x = 0
+
+        for seg in self._segments:
+            cumulative += _seg_size(seg)
+            frac = cumulative / self._total_mb
+            x_end = round(frac * w)
+            seg_w = max(x_end - prev_x, 0)
+            rects.append((prev_x, seg_w, seg))
+            prev_x = x_end
+
+        self._seg_rects = rects
+
+    # ── Desplazamiento del mouse ───────────────────────────────────────────────────────────
 
     def mouseMoveEvent(self, event):
         x = event.position().x()
-        w = self.width()
-        seg = self._seg_at_x(x, w)
+        seg = self._seg_at_x(x)
         if seg != self._hover_seg:
             self._hover_seg  = seg
             self._hover_pos  = event.position().toPoint()
@@ -143,15 +165,10 @@ class _MemoryBar(QWidget):
         self.update()
         super().leaveEvent(event)
 
-    def _seg_at_x(self, x: float, total_w: int) -> Any | None:
-        offset = 0.0
-        for seg in self._segments:
-            size = _seg_size(seg)
-            frac = size / self._total_mb
-            seg_w = frac * total_w
-            if offset <= x < offset + seg_w:
+    def _seg_at_x(self, x: float) -> Any | None:
+        for seg_x, seg_w, seg in self._seg_rects:
+            if seg_x <= x < seg_x + seg_w:
                 return seg
-            offset += seg_w
         return None
 
     # ── Paint ─────────────────────────────────────────────────────────────────
@@ -168,26 +185,22 @@ class _MemoryBar(QWidget):
         painter.setBrush(QColor(Colors.BG_ELEVATED))
         painter.drawRoundedRect(0, 0, w, h, r, r)
 
-        # Segments
-        offset = 0
-        for seg in self._segments:
-            size = _seg_size(seg)
-            frac = size / self._total_mb
-            seg_w = max(int(frac * w), 1)
+        # Segments — usa los mismos rects cacheados que _seg_at_x
+        for seg_x, seg_w, seg in self._seg_rects:
+            if seg_w <= 0:
+                continue
             color = _seg_color(seg)
-            # Highlight hovered segment
             if seg is self._hover_seg:
                 color = color.lighter(140)
             painter.setBrush(color)
-            painter.drawRect(offset, 0, seg_w, h)
-            offset += seg_w
+            painter.drawRect(seg_x, 0, seg_w, h)
 
-        # Border overlay
+        # Superposición de bordes
         painter.setPen(QPen(QColor(Colors.BORDER), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(0, 0, w - 1, h - 1, r, r)
 
-        # Hover tooltip bubble
+        # Burbuja de información sobre herramientas al pasar el cursor
         if self._hover_seg:
             seg = self._hover_seg
             label  = _seg_label(seg)
@@ -208,7 +221,7 @@ class _MemoryBar(QWidget):
         painter.end()
 
 
-# ── Stats row ─────────────────────────────────────────────────────────────────
+# ── Fila de estadisticas ─────────────────────────────────────────────────────────────────
 
 def _stat_label(title: str, value: str = "—", color: str = Colors.TEXT_PRIMARY) -> QWidget:
     """A mini card showing a stat value + label below."""
