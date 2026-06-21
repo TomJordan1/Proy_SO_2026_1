@@ -1,1 +1,5 @@
 **/__pycache__
+*.json
+*.pdf
+!docs/*.json
+!docs/*.pdf
