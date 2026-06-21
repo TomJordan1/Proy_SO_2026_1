@@ -157,7 +157,12 @@ class PCBTableWidget(QTableWidget):
     def update(self, processes: list) -> None:  # type: ignore[override]
         """Repopulate the table from a list of PCB objects or dicts."""
         self._procs = list(processes)   # store for inspector
-        # Deshabilite la clasificación durante la repoblación para evitar repedidos a mitad de inserción
+
+        # Evita que Qt repinte entre cada insertRow/setItem. Sin esto, al pasar
+        # de tabla vacía a tener contenido, Qt marca brevemente la fila 0 como
+        # "current item" (se pinta con el color de selección) y eso se ve como
+        # un parpadeo violeta en cada refresco.
+        self.setUpdatesEnabled(False)
         self.setSortingEnabled(False)
         self.setRowCount(0)
 
@@ -165,11 +170,10 @@ class PCBTableWidget(QTableWidget):
 
         for proc in processes:
             pid       = g(proc, "pid",    default="—")
-            
-            # Actualizar el inspector abierto si existe
+
             if pid in self._open_dialogs:
                 self._open_dialogs[pid].update_data(proc if isinstance(proc, dict) else proc.__dict__)
-                
+
             row = self.rowCount()
             self.insertRow(row)
 
@@ -188,38 +192,31 @@ class PCBTableWidget(QTableWidget):
             mem       = g(proc, "memory_size", "memory_mb", "memory", default=None)
             comp      = g(proc, "completion_percent", "completion_pct", default=None)
 
-            # ── Row colour ───────────────────────────────────────────────────
             row_bg = _ROW_DIM.get(state)
 
-            # ── Cells ────────────────────────────────────────────────────────
             cells = [
-                _num_item(pid if isinstance(pid, (int, float)) else 0,
-                          fmt="{:.0f}"),                                # PID
-                _item(name, Qt.AlignLeft),                              # Nombre
-                _item(proc_type),                                       # Tipo
-                _item(state),                                           # Estado
-                _num_item(priority or 0),                               # Prioridad
-                _num_item(burst    or 0),                               # Burst
-                _num_item(remaining or 0),                              # Restante
-                _num_item(waiting   or 0),                              # Espera
-                _item(f"0x{pc_val:04X}" if isinstance(pc_val, int)
-                      else str(pc_val)),                                # PC
-                _num_item(mem  or 0, fmt="{:.1f}"),                     # Mem
-                _num_item(comp or 0, fmt="{:.1f}%"),                    # Comp%
+                _num_item(pid if isinstance(pid, (int, float)) else 0, fmt="{:.0f}"),
+                _item(name, Qt.AlignLeft),
+                _item(proc_type),
+                _item(state),
+                _num_item(priority or 0),
+                _num_item(burst    or 0),
+                _num_item(remaining or 0),
+                _num_item(waiting   or 0),
+                _item(f"0x{pc_val:04X}" if isinstance(pc_val, int) else str(pc_val)),
+                _num_item(mem  or 0, fmt="{:.1f}"),
+                _num_item(comp or 0, fmt="{:.1f}%"),
             ]
 
             for col, cell in enumerate(cells):
-                # Row background tint
                 if row_bg:
                     cell.setBackground(QBrush(row_bg))
 
-                # Escriba el color de la columna
                 if col == _COL_IDX["Tipo"]:
                     tc = TYPE_COLORS.get(proc_type)
                     if tc:
                         cell.setForeground(QBrush(QColor(tc)))
 
-                # Columna de estado: coloured background
                 if col == _COL_IDX["Estado"]:
                     sc = STATE_COLORS.get(state)
                     if sc:
@@ -228,7 +225,6 @@ class PCBTableWidget(QTableWidget):
 
                 self.setItem(row, col, cell)
 
-            # ── Boton inspector ─────────────────────────────────────────────
             btn = QPushButton("···")
             btn.setFixedSize(30, 20)
             btn.setStyleSheet(
@@ -236,12 +232,18 @@ class PCBTableWidget(QTableWidget):
                 f" border:1px solid {Colors.BORDER}; border-radius:3px; font-size:9pt; }}"
                 f"QPushButton:hover {{ background:{Colors.ACCENT_DARK}; }}"
             )
-            # Capturar proc dict para el cierre lambda
             proc_dict = dict(proc) if isinstance(proc, dict) else proc.__dict__
             btn.clicked.connect(lambda _, p=proc_dict: self._open_inspector(p))
             self.setCellWidget(row, _COL_IDX["···"], btn)
 
         self.setSortingEnabled(True)
+
+        # Limpia el "current item" que Qt asigna automáticamente a la fila 0
+        # al repoblar desde una tabla vacía, antes de volver a pintar.
+        self.clearSelection()
+        self.setCurrentCell(-1, -1)
+
+        self.setUpdatesEnabled(True)
 
     def _open_inspector(self, proc: dict):
         pid = proc.get("pid")
