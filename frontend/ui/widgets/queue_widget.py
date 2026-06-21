@@ -1,12 +1,12 @@
 """
-ui/widgets/queue_widget.py — PatatOS Ready & Waiting Queue visualizer.
+ui/widgets/queue_widget.py: visualizador de cola de espera y listo para PatatOS.
 
-Shows:
-  • Ready queues – one column per CPU core, each process as a colored chip.
-  • Waiting queue – processes blocked on I/O, shown with device + remaining ticks.
+Muestra: 
+• Colas listas: una columna por núcleo de CPU, cada proceso como un chip de color. 
+• Cola de espera: procesos bloqueados en E/S, mostrados con dispositivo + ticks restantes.
 
-Each chip displays: process name, type badge, priority, waiting time.
-The whole widget is wrapped in a QScrollArea so it handles many processes cleanly.
+Cada chip muestra: nombre del proceso, tipo de placa, prioridad, tiempo de espera.
+Todo el widget está envuelto en un QScrollArea por lo que maneja muchos procesos de forma limpia.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from ui.styles import Colors, TYPE_COLORS, pid_color
 
 class _ProcessChip(QFrame):
     """
-    A compact card for a single process in a queue.
+    Una tarjeta compacta para un solo proceso en una cola.
 
     Expected dict keys (all optional):
         name, pid, type, priority, waiting_time, device, remaining_ticks
@@ -97,7 +97,7 @@ class _ProcessChip(QFrame):
         if wait is not None:
             bot.addWidget(_mini(f"W:{wait}t"))
 
-        # If this is a waiting process, show device + remaining
+        # Si este es un proceso en espera, muestra el device + remaining
         device = proc.get("device")
         remaining = proc.get("remaining_ticks")
         if device:
@@ -109,10 +109,10 @@ class _ProcessChip(QFrame):
         layout.addLayout(bot)
 
 
-# ── Column builder ────────────────────────────────────────────────────────────
+# ── Constructor de columnas ────────────────────────────────────────────────────────────
 
 def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGroupBox:
-    """Return a vertical QGroupBox column filled with process chips."""
+    """Devuelve una columna QGroupBox vertical llena de chips de proceso."""
     box = QGroupBox(title)
     box.setStyleSheet(
         f"""

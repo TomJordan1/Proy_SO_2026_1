@@ -22,8 +22,8 @@ from PySide6.QtWidgets import (
 from ui.styles import Colors
 
 
-# ── Thresholds & metadata for each metric ─────────────────────────────────────
-# Each entry: (dict_key, display_label, unit, good_threshold, bad_threshold,
+# ── Umbrales y metadatos para cada métrica ─────────────────────────────────────
+# Cada entrada: (dict_key, display_label, unit, good_threshold, bad_threshold,
 #              higher_is_better)
 _METRICS: list[tuple] = [
     ("cpu_utilization",    "CPU Utilization",    "%",  80.0,  40.0,  True),
@@ -36,11 +36,12 @@ _METRICS: list[tuple] = [
     ("total_errors",       "Total Errors",       "",    0.0,   5.0,  False),
 ]
 
-# Colour for good / medium / bad
-_C_GOOD   = "#16a34a"   # green
-_C_MED    = "#d97706"   # orange
-_C_BAD    = "#dc2626"   # red
-_C_NEUT   = Colors.TEXT_SEC  # neutral (not enough data)
+
+# Color para bueno/medio/malo
+_C_GOOD   = "#16a34a"   # verde
+_C_MED    = "#d97706"   # naranja
+_C_BAD    = "#dc2626"   # rojo
+_C_NEUT   = Colors.TEXT_SEC  # neutral (data insuficiente)
 
 
 def _value_color(value: float, good: float, bad: float, higher: bool) -> str:
@@ -59,7 +60,7 @@ def _value_color(value: float, good: float, bad: float, higher: bool) -> str:
         return _C_MED
 
 
-# ── Individual metric card ─────────────────────────────────────────────────────
+# ── Tarjeta métrica individual ─────────────────────────────────────────────────────
 
 class _MetricCard(QFrame):
     """A card showing a single metric: big value + label below."""
@@ -137,7 +138,7 @@ class _MetricCard(QFrame):
                 f"color:{color}; font-size:{font_size}pt; font-weight:700;"
             )
 
-        # Highlight card border with the same colour
+        # Highlight borde de tarjeta del mismo color
         self.setStyleSheet(
             f"""
             QFrame {{

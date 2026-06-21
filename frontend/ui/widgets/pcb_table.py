@@ -25,7 +25,7 @@ from ui.styles import Colors, STATE_COLORS, TYPE_COLORS
 from ui.widgets.pcb_detail_dialog import PCBDetailDialog
 
 
-# ── Column definitions ────────────────────────────────────────────────────────
+# ── Definiciones de columnas ────────────────────────────────────────────────────────
 
 _COLUMNS = [
     "PID",
@@ -44,7 +44,7 @@ _COLUMNS = [
 
 _COL_IDX = {name: i for i, name in enumerate(_COLUMNS)}
 
-# Dim row tint for non-active states (alpha overlay)
+# Dim row tinte para estados no activos (alpha overlay)
 _ROW_DIM = {
     "TERMINATED": QColor(Colors.STATE_TERMINATED + "22"),
     "NEW":        QColor(Colors.STATE_NEW        + "11"),
@@ -74,7 +74,7 @@ def _num_item(value: float | int, fmt: str = "{}") -> QTableWidgetItem:
 
 class PCBTableWidget(QTableWidget):
     """
-    Sortable process table widget.
+    Widget de tabla de procesos ordenable.
 
     Usage::
 
@@ -99,7 +99,7 @@ class PCBTableWidget(QTableWidget):
         self._procs: list = []
         self._open_dialogs: dict[int, PCBDetailDialog] = {}
 
-        # Fix column widths for narrow columns
+        # Corregir anchos de columna para columnas estrechas
         for col_name in ("PID", "Prioridad", "Burst", "Restante", "Espera",
                          "PC", "Completado%", "···"):
             idx = _COL_IDX.get(col_name)
@@ -108,7 +108,7 @@ class PCBTableWidget(QTableWidget):
                     idx, QHeaderView.ResizeToContents
                 )
 
-        # Store proc data for inspector dialog
+        # Almacenar datos de proceso para el diálogo del inspector
         self._procs: list = []
 
         self.setStyleSheet(
@@ -139,7 +139,7 @@ class PCBTableWidget(QTableWidget):
             """
         )
 
-    # ── Attribute accessor (supports both dict and object) ────────────────────
+    # ── Accesor de atributos (admite tanto dict como object) ────────────────────
 
     @staticmethod
     def _get(proc, *keys, default=None):
@@ -157,7 +157,7 @@ class PCBTableWidget(QTableWidget):
     def update(self, processes: list) -> None:  # type: ignore[override]
         """Repopulate the table from a list of PCB objects or dicts."""
         self._procs = list(processes)   # store for inspector
-        # Disable sorting during repopulation to avoid mid-insert reorders
+        # Deshabilite la clasificación durante la repoblación para evitar repedidos a mitad de inserción
         self.setSortingEnabled(False)
         self.setRowCount(0)
 
@@ -166,7 +166,7 @@ class PCBTableWidget(QTableWidget):
         for proc in processes:
             pid       = g(proc, "pid",    default="—")
             
-            # Update open inspector if it exists
+            # Actualizar el inspector abierto si existe
             if pid in self._open_dialogs:
                 self._open_dialogs[pid].update_data(proc if isinstance(proc, dict) else proc.__dict__)
                 
@@ -213,13 +213,13 @@ class PCBTableWidget(QTableWidget):
                 if row_bg:
                     cell.setBackground(QBrush(row_bg))
 
-                # Type column colour
+                # Escriba el color de la columna
                 if col == _COL_IDX["Tipo"]:
                     tc = TYPE_COLORS.get(proc_type)
                     if tc:
                         cell.setForeground(QBrush(QColor(tc)))
 
-                # State column: coloured background
+                # Columna de estado: coloured background
                 if col == _COL_IDX["Estado"]:
                     sc = STATE_COLORS.get(state)
                     if sc:
@@ -228,7 +228,7 @@ class PCBTableWidget(QTableWidget):
 
                 self.setItem(row, col, cell)
 
-            # ── Inspector button ─────────────────────────────────────────────
+            # ── Boton inspector ─────────────────────────────────────────────
             btn = QPushButton("···")
             btn.setFixedSize(30, 20)
             btn.setStyleSheet(
@@ -236,7 +236,7 @@ class PCBTableWidget(QTableWidget):
                 f" border:1px solid {Colors.BORDER}; border-radius:3px; font-size:9pt; }}"
                 f"QPushButton:hover {{ background:{Colors.ACCENT_DARK}; }}"
             )
-            # Capture proc dict for the lambda closure
+            # Capturar proc dict para el cierre lambda
             proc_dict = dict(proc) if isinstance(proc, dict) else proc.__dict__
             btn.clicked.connect(lambda _, p=proc_dict: self._open_inspector(p))
             self.setCellWidget(row, _COL_IDX["···"], btn)

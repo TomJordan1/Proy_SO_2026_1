@@ -120,7 +120,7 @@ class _CorePanel(QGroupBox):
         row1.addStretch()
         layout.addLayout(row1)
 
-        # ── Completion progress bar ────────────────────────────────────────────
+        # ── Barra de progreso de finalización ────────────────────────────────────────────
         lbl_comp = QLabel("Completion")
         lbl_comp.setStyleSheet(f"color:{Colors.TEXT_MUTED}; font-size:8pt;")
         layout.addWidget(lbl_comp)
@@ -140,7 +140,7 @@ class _CorePanel(QGroupBox):
         self._quantum_row.setVisible(False)
         layout.addWidget(self._quantum_row)
 
-        # ── PC value ──────────────────────────────────────────────────────────
+        # ── Valor de PC ──────────────────────────────────────────────────────────
         pc_row = QHBoxLayout()
         pc_lbl = QLabel("PC:")
         pc_lbl.setStyleSheet(f"color:{Colors.TEXT_MUTED}; font-size:8pt;")
@@ -153,7 +153,7 @@ class _CorePanel(QGroupBox):
         pc_row.addStretch()
         layout.addLayout(pc_row)
 
-        # ── Registers ─────────────────────────────────────────────────────────
+        # ── Registros ─────────────────────────────────────────────────────────
         self._reg_label = QLabel("Regs: —")
         self._reg_label.setStyleSheet(
             f"color:{Colors.TEXT_MUTED}; font-size:8pt; font-family:monospace;"

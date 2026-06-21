@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from ui.styles import Colors, STATE_COLORS
 
 
-# ── State diagram constants ────────────────────────────────────────────────────
+# ── Constantes del diagrama de estado ────────────────────────────────────────────────────
 
 _STATE_MAP = {
     "NEW":        "NUEVO",
@@ -39,7 +39,7 @@ _STATE_MAP = {
     "ERROR":      "ERROR",
 }
 
-# State node positions (normalized 0-1 in a 500x260 canvas)
+# Posiciones de los nodos de estado (normalizadas 0-1 en un lienzo de 500x260)
 _NODES: dict[str, tuple[float, float]] = {
     "NEW":        (0.08, 0.40),
     "READY":      (0.35, 0.40),
@@ -62,9 +62,9 @@ _EDGES = [
     ("RUNNING",    "ERROR",      "error fatal",           0),
 ]
 
-_ACTIVE_COLOR  = "#00E5A0"   # vivid green – active node
-_PAST_COLOR    = "#4A90D9"   # blue – previously visited (optional future use)
-_IDLE_COLOR    = "#2A2A3E"   # dark – inactive node fill
+_ACTIVE_COLOR  = "#00E5A0"   # verde vivo – nodo activo
+_PAST_COLOR    = "#4A90D9"   # azul - visitado anteriormente (uso futuro opcional)
+_IDLE_COLOR    = "#2A2A3E"   # oscuro - relleno de nodo inactivo
 _EDGE_COLOR    = "#666688"
 _LABEL_COLOR   = "#AAAACC"
 
@@ -118,7 +118,7 @@ class _StateDiagram(QWidget):
                 path = QPainterPath(p1)
                 path.quadTo(mid, p2)
                 painter.drawPath(path)
-                # Arrowhead at p2 along the path
+                # Arrowhead en p2 a lo largo del path
                 dx = p2.x() - mid.x()
                 dy = p2.y() - mid.y()
             else:
@@ -156,7 +156,7 @@ class _StateDiagram(QWidget):
                 Qt.AlignCenter, label,
             )
 
-        # ── Draw nodes ─────────────────────────────────────────────────────────
+        # ── Dibujas nodos ─────────────────────────────────────────────────────────
         node_font = QFont()
         node_font.setPointSize(8)
         node_font.setBold(True)
@@ -172,7 +172,7 @@ class _StateDiagram(QWidget):
             is_active = (name == self._state)
 
             if is_active:
-                # Pulsating glow
+                # Resplandor pulsante
                 glow_r = r * pulse_factor * 1.7
                 grad = QRadialGradient(cx, cy, glow_r)
                 grad.setColorAt(0.0, QColor(_ACTIVE_COLOR + "55"))
@@ -183,7 +183,7 @@ class _StateDiagram(QWidget):
                     QRectF(cx - glow_r, cy - glow_r, glow_r * 2, glow_r * 2)
                 )
 
-                # Active node border + fill
+                # Borde de nodo activo + relleno
                 painter.setPen(QPen(QColor(_ACTIVE_COLOR), 2))
                 fill = QColor(_ACTIVE_COLOR)
                 fill.setAlpha(40)
@@ -201,7 +201,7 @@ class _StateDiagram(QWidget):
                 QRectF(cx - r, cy - r, r * 2, r * 2)
             )
 
-            # Label inside node
+            # Label dentro de node
             label_text = _STATE_MAP.get(name, name)
             painter.setPen(QColor(_ACTIVE_COLOR if is_active else "#9999BB"))
             painter.drawText(
@@ -210,7 +210,7 @@ class _StateDiagram(QWidget):
             )
 
 
-# ── Field card ────────────────────────────────────────────────────────────────
+# ── tarjeta de campo ────────────────────────────────────────────────────────────────
 
 def _field_row(label: str, value: Any) -> tuple[QHBoxLayout, QLabel]:
     row = QHBoxLayout()
@@ -271,7 +271,7 @@ class PCBDetailDialog(QDialog):
         divider.setStyleSheet(f"color:{Colors.BORDER};")
         root.addWidget(divider)
 
-        # ── State diagram ─────────────────────────────────────────────────────
+        # ── Diagrama de estadpo ─────────────────────────────────────────────────────
         diag_label = QLabel("Diagrama de 5 Estados")
         diag_label.setStyleSheet(
             f"color:{Colors.TEXT_SEC}; font-size:9pt; font-weight:600;"
@@ -420,7 +420,7 @@ class PCBDetailDialog(QDialog):
                 self._val_labels[label].setText(str(v) if v is not None else "—")
 
 
-        # ── Close button ──────────────────────────────────────────────────────
+        # ── Boton de cierre ──────────────────────────────────────────────────────
         btn_box = QDialogButtonBox(QDialogButtonBox.Close)
         btn_box.rejected.connect(self.reject)
         btn_box.setStyleSheet(

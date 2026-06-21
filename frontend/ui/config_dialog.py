@@ -375,7 +375,7 @@ class ConfigDialog(QDialog):
         self.chk_auto.setChecked(False)
         g.addWidget(self.chk_auto, 5, 0, 1, 3)
 
-        # Max ticks (only relevant when auto_create is on)
+        # Max ticks (Solo relevante cuando auto_create está activado.)
         self.max_ticks_row = QWidget()
         mt_layout = QHBoxLayout(self.max_ticks_row)
         mt_layout.setContentsMargins(20, 0, 0, 0)
@@ -497,7 +497,7 @@ class ConfigDialog(QDialog):
         # 0=FCFS, 1=SJF, 2=RR, 3=Priority
         is_rr = (idx == 2)
         self.spin_quantum.setEnabled(is_rr)
-        # Auto-configure preemptive: RR and Priority are always preemptive
+        # Auto-configure preemptive: RR y Priority siempre son preemptive.
         if idx in (2, 3):
             self.chk_preemptive.setChecked(True)
             self.chk_preemptive.setEnabled(False)
@@ -517,7 +517,7 @@ class ConfigDialog(QDialog):
         labels = ["Lento (2000 ms)", "Normal (800 ms)", "Rápido (250 ms)", "Turbo (80 ms)"]
         self.lbl_speed.setText(labels[val])
 
-    # Default 20 manual process definitions
+    # Definiciones de procesos manuales predeterminadas de 20
     _DEFAULT_PROCS = [
         ("Sistema",    10, 0, 16,  "SYSTEM"),
         ("Kernel",      8, 0, 12,  "SYSTEM"),
@@ -682,7 +682,7 @@ class ConfigDialog(QDialog):
                     import random
                     
                     nice_val = info.get('nice')
-                    # Windows priority mapping to PatatOS 0-9 (0=Highest, 9=Lowest)
+                    # Asignación de prioridad de Windows a PatatOS 0-9 (0=Highest, 9=Lowest)
                     if nice_val == psutil.REALTIME_PRIORITY_CLASS:
                         prio = 0
                     elif nice_val == psutil.HIGH_PRIORITY_CLASS:
@@ -722,7 +722,7 @@ class ConfigDialog(QDialog):
         from datetime import datetime
         config, manual_procs = self.get_config()
 
-        # Determine process list for export
+        # Determinar la lista de procesos para la exportación
         if self.radio_sys.isChecked():
             count = self.spin_proc_count.value()
             proc_list = self._get_psutil_processes(count)

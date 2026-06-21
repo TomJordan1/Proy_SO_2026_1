@@ -34,7 +34,7 @@ class TimelineDrawWidget(QWidget):
                 normalised.append(tuple(entry))
         self.timeline = normalised
         self.num_cores = max(1, num_cores)
-        # Calculate width needed
+        # Calcular el ancho necesario
         if self.timeline:
             max_tick = max(t[0] for t in self.timeline)
             min_tick = min(t[0] for t in self.timeline)
@@ -42,7 +42,7 @@ class TimelineDrawWidget(QWidget):
             needed_width = max(800, tick_span * 40 + 100)
             self.setMinimumWidth(needed_width)
             
-        # Adjust height based on number of cores, give enough room for text
+        # Ajusta la altura según el número de núcleos, deja suficiente espacio para el texto
         self.setMinimumHeight(max(180, self.num_cores * 160))
         self.update()
 
@@ -61,7 +61,7 @@ class TimelineDrawWidget(QWidget):
         width = self.width() - 80
         x_offset = 60
         
-        # Draw main axes for each core
+        # Dibuja los ejes principales de cada núcleo
         lane_height = self.height() // self.num_cores
         
         for i in range(self.num_cores):
@@ -69,7 +69,7 @@ class TimelineDrawWidget(QWidget):
             painter.setPen(QPen(QColor(Colors.BORDER), 2))
             painter.drawLine(x_offset, y_center, x_offset + width, y_center)
             
-            # Draw Core Label
+            # Dibujar etiqueta del núcleo
             painter.setPen(QColor(Colors.CORE_COLORS[i % len(Colors.CORE_COLORS)]))
             painter.drawText(5, y_center + 4, f"Core {i}")
 
@@ -167,6 +167,6 @@ class TimelineWidget(QWidget):
 
     def update(self, timeline: List[Tuple[int, Optional[int], str, str, str]], num_cores: int = 1):
         self.draw_widget.update_timeline(timeline, num_cores)
-        # Scroll to right automatically
+        # Desplazarse automáticamente hacia la derecha
         hbar = self.scroll.horizontalScrollBar()
         hbar.setValue(hbar.maximum())
