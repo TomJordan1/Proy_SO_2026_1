@@ -72,6 +72,14 @@ _LABEL_COLOR   = "#AAAACC"
 class _StateDiagram(QWidget):
     """Paints the 5-state process diagram and highlights the current state."""
 
+    # Tamaño de elipse: se calcula a partir del ancho real del texto (vía
+    # QFontMetrics) más este padding, con un mínimo para que ningún nodo
+    # quede demasiado pequeño (p.ej. "ERROR" o "NUEVO").
+    NODE_PAD_X = 18
+    NODE_PAD_Y = 10
+    NODE_MIN_W = 64
+    NODE_MIN_H = 34
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._state = "NEW"
@@ -79,7 +87,13 @@ class _StateDiagram(QWidget):
         self._timer  = QTimer(self)
         self._timer.timeout.connect(self._tick_pulse)
         self._timer.start(40)  # ~25 fps
-        self.setMinimumSize(500, 260)
+        self.setMinimumSize(560, 320)
+
+        # Fuente de referencia para medir texto (bold, peor caso de ancho,
+        # así el nodo nunca cambia de tamaño al activarse/desactivarse).
+        self._node_font = QFont()
+        self._node_font.setPointSize(8)
+        self._node_font.setBold(True)
 
     def _tick_pulse(self):
         self._pulse = (self._pulse + 0.08) % (2 * math.pi)
@@ -93,18 +107,53 @@ class _StateDiagram(QWidget):
         nx, ny = _NODES[name]
         return QPointF(nx * w, ny * h)
 
+    def _node_half_size(self, label_text: str, fm) -> tuple[float, float]:
+        """Calcula (semi-ancho, semi-alto) de la elipse para que el texto entre."""
+        text_w = fm.horizontalAdvance(label_text)
+        full_w = max(self.NODE_MIN_W, text_w + 2 * self.NODE_PAD_X)
+        full_h = max(self.NODE_MIN_H, fm.height() + 2 * self.NODE_PAD_Y)
+        return full_w / 2, full_h / 2
+
+    @staticmethod
+    def _ellipse_boundary_point(cx: float, cy: float, a: float, b: float,
+                                 ux: float, uy: float) -> QPointF:
+        """
+        Punto sobre el borde de una elipse (centro cx,cy; semiejes a,b)
+        en la dirección (ux,uy) que llega desde afuera hacia el centro.
+
+        Resuelve t en: (t*ux/a)^2 + (t*uy/b)^2 = 1
+        """
+        denom = math.sqrt((ux / a) ** 2 + (uy / b) ** 2) if (a and b) else 0
+        if denom == 0:
+            return QPointF(cx, cy)
+        t = 1.0 / denom
+        return QPointF(cx - ux * t, cy - uy * t)
+
     def paintEvent(self, _event):  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         W, H = self.width(), self.height()
 
-        # Background
         painter.fillRect(0, 0, W, H, QColor(Colors.BG_SURFACE))
 
-        # ── Draw edges ─────────────────────────────────────────────────────────
+        fm = painter.fontMetrics()
+        painter.setFont(self._node_font)
+        fm = painter.fontMetrics()  # métricas reales de la fuente de nodo
+
+        # ── Precalcular geometría de todos los nodos (centro + semiejes) ───────
+        node_geo: dict[str, tuple[float, float, float, float]] = {}
+        for name in _NODES:
+            label_text = _STATE_MAP.get(name, name)
+            center = self._node_center(name, W, H)
+            half_w, half_h = self._node_half_size(label_text, fm)
+            node_geo[name] = (center.x(), center.y(), half_w, half_h)
+
+        # ── Draw edges ───────────────────────────────────────────────────────
         for frm, to, label, cy_off in _EDGES:
-            p1 = self._node_center(frm, W, H)
-            p2 = self._node_center(to, W, H)
+            cx1, cy1, a1, b1 = node_geo[frm]
+            cx2, cy2, a2, b2 = node_geo[to]
+            p1 = QPointF(cx1, cy1)
+            p2 = QPointF(cx2, cy2)
 
             pen = QPen(QColor(_EDGE_COLOR), 1.5)
             pen.setStyle(Qt.SolidLine)
@@ -112,13 +161,11 @@ class _StateDiagram(QWidget):
             painter.setBrush(Qt.NoBrush)
 
             if cy_off != 0:
-                # Quadratic bezier
                 mid = QPointF((p1.x() + p2.x()) / 2,
                               (p1.y() + p2.y()) / 2 + cy_off)
                 path = QPainterPath(p1)
                 path.quadTo(mid, p2)
                 painter.drawPath(path)
-                # Arrowhead en p2 a lo largo del path
                 dx = p2.x() - mid.x()
                 dy = p2.y() - mid.y()
             else:
@@ -126,13 +173,14 @@ class _StateDiagram(QWidget):
                 dx = p2.x() - p1.x()
                 dy = p2.y() - p1.y()
 
-            # Arrowhead
             length = math.hypot(dx, dy) or 1
             ux, uy = dx / length, dy / length
-            ah = 8
-            aw = 5
-            tip = QPointF(p2.x() - ux * (_NODE_RADIUS * W / 500),
-                          p2.y() - uy * (_NODE_RADIUS * H / 260))
+
+            # Punto de llegada de la flecha: borde real de la elipse destino,
+            # no un radio fijo — así funciona aunque cada nodo tenga otro tamaño.
+            tip = self._ellipse_boundary_point(cx2, cy2, a2, b2, ux, uy)
+
+            ah, aw = 8, 5
             left = QPointF(tip.x() - ah * ux + aw * uy,
                            tip.y() - ah * uy - aw * ux)
             right = QPointF(tip.x() - ah * ux - aw * uy,
@@ -144,46 +192,33 @@ class _StateDiagram(QWidget):
             arrow.closeSubpath()
             painter.fillPath(arrow, QColor(_EDGE_COLOR))
 
-            # Edge label
             mid_x = (p1.x() + p2.x()) / 2
             mid_y = (p1.y() + p2.y()) / 2 + cy_off * 0.4
             painter.setPen(QColor(_LABEL_COLOR))
-            font = QFont()
-            font.setPointSize(7)
-            painter.setFont(font)
+            edge_font = QFont()
+            edge_font.setPointSize(7)
+            painter.setFont(edge_font)
             painter.drawText(
                 QRectF(mid_x - 45, mid_y - 16, 90, 32),
                 Qt.AlignCenter, label,
             )
 
-        # ── Dibujas nodos ─────────────────────────────────────────────────────────
-        node_font = QFont()
-        node_font.setPointSize(8)
-        node_font.setBold(True)
-        painter.setFont(node_font)
-
+        # ── Dibujar nodos (elipses) ─────────────────────────────────────────────
         pulse_factor = 1.0 + 0.06 * math.sin(self._pulse)
 
-        for name, (nx, ny) in _NODES.items():
-            cx = nx * W
-            cy = ny * H
-            r  = _NODE_RADIUS * min(W, H) / 500
-
+        for name in _NODES:
+            cx, cy, half_w, half_h = node_geo[name]
             is_active = (name == self._state)
 
             if is_active:
-                # Resplandor pulsante
-                glow_r = r * pulse_factor * 1.7
-                grad = QRadialGradient(cx, cy, glow_r)
+                glow_w, glow_h = half_w * pulse_factor * 1.35, half_h * pulse_factor * 1.5
+                grad = QRadialGradient(cx, cy, max(glow_w, glow_h))
                 grad.setColorAt(0.0, QColor(_ACTIVE_COLOR + "55"))
                 grad.setColorAt(1.0, QColor(_ACTIVE_COLOR + "00"))
                 painter.setBrush(QBrush(grad))
                 painter.setPen(Qt.NoPen)
-                painter.drawEllipse(
-                    QRectF(cx - glow_r, cy - glow_r, glow_r * 2, glow_r * 2)
-                )
+                painter.drawEllipse(QRectF(cx - glow_w, cy - glow_h, glow_w * 2, glow_h * 2))
 
-                # Borde de nodo activo + relleno
                 painter.setPen(QPen(QColor(_ACTIVE_COLOR), 2))
                 fill = QColor(_ACTIVE_COLOR)
                 fill.setAlpha(40)
@@ -197,15 +232,17 @@ class _StateDiagram(QWidget):
                 painter.setPen(QPen(QColor("#555577"), 1.5))
                 painter.setBrush(QBrush(QColor(_IDLE_COLOR)))
 
-            painter.drawEllipse(
-                QRectF(cx - r, cy - r, r * 2, r * 2)
-            )
+            painter.drawEllipse(QRectF(cx - half_w, cy - half_h, half_w * 2, half_h * 2))
 
-            # Label dentro de node
+            # Label DENTRO de la elipse — ya cabe porque la elipse se dimensionó
+            # a partir del ancho real de este mismo texto.
             label_text = _STATE_MAP.get(name, name)
-            painter.setPen(QColor(_ACTIVE_COLOR if is_active else "#9999BB"))
+            label_font = QFont(self._node_font)
+            label_font.setBold(is_active)
+            painter.setFont(label_font)
+            painter.setPen(QColor(_ACTIVE_COLOR if is_active else "#CCCCEE"))
             painter.drawText(
-                QRectF(cx - r, cy - r, r * 2, r * 2),
+                QRectF(cx - half_w, cy - half_h, half_w * 2, half_h * 2),
                 Qt.AlignCenter, label_text,
             )
 

@@ -158,10 +158,7 @@ class PCBTableWidget(QTableWidget):
         """Repopulate the table from a list of PCB objects or dicts."""
         self._procs = list(processes)   # store for inspector
 
-        # Evita que Qt repinte entre cada insertRow/setItem. Sin esto, al pasar
-        # de tabla vacía a tener contenido, Qt marca brevemente la fila 0 como
-        # "current item" (se pinta con el color de selección) y eso se ve como
-        # un parpadeo violeta en cada refresco.
+        # Evita que Qt repinte entre cada insertRow/setItem
         self.setUpdatesEnabled(False)
         self.setSortingEnabled(False)
         self.setRowCount(0)
@@ -246,7 +243,7 @@ class PCBTableWidget(QTableWidget):
         self.setUpdatesEnabled(True)
 
     def _open_inspector(self, proc: dict):
-        pid = proc.get("pid")
+        pid = proc.get("pid")   
         if pid in self._open_dialogs:
             dlg = self._open_dialogs[pid]
             dlg.raise_()
