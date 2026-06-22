@@ -109,6 +109,19 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
         TickSnapshot snap = buildSnapshot(tick);
         writer.recordTick(snap);
 
+        // 11. Check for unresolved KEYBOARD IO to halt simulation
+        bool unresolvedKeyboard = false;
+        for (const auto& dev : io_.devices()) {
+            if (dev.id == "KEYBOARD" && dev.busy && dev.current) {
+                unresolvedKeyboard = true;
+                break;
+            }
+        }
+        if (unresolvedKeyboard) {
+            log("[T=" + std::to_string(tick) + "] HALTING for KEYBOARD interrupt (awaiting user action).");
+            break;
+        }
+
         // Early exit if all done
         if (allDone() && newList_.empty()) break;
     }
@@ -313,8 +326,8 @@ void Simulator::processEvents(int tick) {
         PCB* p = findProcess(ev.pid);
         if (!p) continue;
 
-        if (ev.action == "CANCEL") {
-            // Cancel the process's IO
+        if (ev.action == "CANCEL" || ev.action == "CONTINUE") {
+            // Cancel/Complete the process's IO
             io_.cancelIO(ev.pid);
             if (p->state == ProcessState::WAITING) {
                 p->ioDevice = std::nullopt;
@@ -323,7 +336,7 @@ void Simulator::processEvents(int tick) {
                     std::remove(waitingList_.begin(), waitingList_.end(), p),
                     waitingList_.end());
                 scheduler_.admit(p, readyQueues_);
-                log("[T=" + std::to_string(tick) + "] EVENT CANCEL P" +
+                log("[T=" + std::to_string(tick) + "] EVENT " + ev.action + " P" +
                     std::to_string(ev.pid) + " (" + p->name + ")");
             }
         } else if (ev.action == "WAIT_FOR_SIGNAL") {
