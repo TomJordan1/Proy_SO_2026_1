@@ -21,7 +21,7 @@ Proy_SO_2026_1/
 ├── backend/                     # Motor de la lógica interna hecho en C++
 ├── docs/                        # Documentación adicional, informes o manuales del proyecto
 ├── frontend/                    # Constructor del input y del GUI hecho en Python
-└── shared_data/                 # Archivos json de nexo entre frontend y backend
+└── shared_data/                 # Archivos json de nexo entre frontend y backend (generado cuando se corre el main.py)
 ```
 
 ```text
