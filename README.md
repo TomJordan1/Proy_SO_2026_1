@@ -1,5 +1,9 @@
 # Simulador de Sistema Operativo
 
+<p align="center">
+  <img src="example.gif" width="250" alt="Ejemplo de uso">
+</p>
+
 ## 👥 Integrantes
 
 * Candia Usca, Zhaid Genaro - 20241096K
