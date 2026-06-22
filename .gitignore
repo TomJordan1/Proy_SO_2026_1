@@ -3,3 +3,4 @@
 *.pdf
 !docs/*.json
 !docs/*.pdf
+/shared_data/*.json

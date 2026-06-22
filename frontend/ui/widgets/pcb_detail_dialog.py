@@ -26,26 +26,23 @@ _STATE_MAP = {
     "RUNNING":    "EJECUCIÓN",
     "WAITING":    "BLOQUEADO",
     "TERMINATED": "TERMINADO",
-    "ERROR":      "ERROR",
 }
 
 _NODES: dict[str, tuple[float, float]] = {
-    "NEW":        (0.07, 0.42),
-    "READY":      (0.32, 0.42),
-    "RUNNING":    (0.60, 0.42),
-    "WAITING":    (0.46, 0.85),
-    "TERMINATED": (0.93, 0.16),
-    "ERROR":      (0.93, 0.68),
+    "NEW":        (0.07, 0.35),
+    "READY":      (0.32, 0.40),
+    "RUNNING":    (0.60, 0.40),
+    "WAITING":    (0.46, 0.83),
+    "TERMINATED": (0.90, 0.35),
 }
 
 _EDGES = [
     ("NEW",        "READY",      "admitido",                0),
     ("READY",      "RUNNING",    "planificador",          -34),
-    ("RUNNING",    "READY",      "interrupción",            34),
-    ("RUNNING",    "WAITING",    "llamada E/S\no evento",  -16),
-    ("WAITING",    "READY",      "finaliza E/S\nu evento",  16),
-    ("RUNNING",    "TERMINATED", "llama sist.\no excep.",    0),
-    ("RUNNING",    "ERROR",      "error fatal",               0),
+    ("RUNNING",    "READY",      "interrupción",           34),
+    ("RUNNING",    "WAITING",    "llamada E/S\no evento", -16),
+    ("WAITING",    "READY",      "finaliza E/S\nu evento", 16),
+    ("RUNNING",    "TERMINATED", "llama sist.\no excep.",   0),
 ]
 
 _ACTIVE_COLOR       = "#00E5A0"
@@ -271,9 +268,8 @@ class _StateDiagram(QWidget):
             cx, cy, hw, hh = geo[name]
             active   = (name == self._state)
             visited  = (name in self._visited_nodes) and not active
-            is_error = (name == "ERROR" and self._state == "ERROR")
 
-            if active and not is_error:
+            if active:
                 gw, gh = hw*pf*1.35, hh*pf*1.5
                 grad = QRadialGradient(cx, cy, max(gw, gh))
                 grad.setColorAt(0.0, QColor(_ACTIVE_COLOR+"55"))
@@ -283,10 +279,6 @@ class _StateDiagram(QWidget):
                 painter.drawEllipse(QRectF(cx-gw, cy-gh, gw*2, gh*2))
                 painter.setPen(QPen(QColor(_ACTIVE_COLOR), 2))
                 fill = QColor(_ACTIVE_COLOR); fill.setAlpha(55)
-                painter.setBrush(QBrush(fill))
-            elif is_error:
-                painter.setPen(QPen(QColor("#FF4C4C"), 2))
-                fill = QColor("#FF4C4C"); fill.setAlpha(55)
                 painter.setBrush(QBrush(fill))
             elif visited:
                 painter.setPen(QPen(QColor(_PAST_COLOR), 1.8))
@@ -301,7 +293,7 @@ class _StateDiagram(QWidget):
             lf = QFont(self._node_font); lf.setBold(active)
             painter.setFont(lf)
             if active:
-                tc = QColor("#FF8080") if is_error else QColor(_ACTIVE_COLOR)
+                tc = QColor(_ACTIVE_COLOR)
             elif visited:
                 tc = QColor(_PAST_COLOR)
             else:
@@ -489,8 +481,6 @@ class PCBDetailDialog(QDialog):
             return str(r)
 
         add("Registros",             "registers", fmt_func=fmt_regs)
-        fl.addWidget(_divider())
-        add("Código de Error",       "error_code", "error")
         fl.addStretch()
         scroll.setWidget(fw)
         root.addWidget(scroll, 1)
