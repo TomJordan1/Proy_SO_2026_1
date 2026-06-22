@@ -268,7 +268,7 @@ void Simulator::executeOneCPUTick(int tick) {
         }
 
         // Random I/O interruption for IO_BOUND and INTERACTIVE processes
-        {
+        if (p->state != ProcessState::WAITING) {
             static std::uniform_real_distribution<double> ioDist(0.0, 1.0);
             double ioChance = 0.0;
             if (p->type == ProcessType::IO_BOUND)    ioChance = 0.08;
@@ -276,11 +276,15 @@ void Simulator::executeOneCPUTick(int tick) {
             ioChance *= cfg_.ioFreqMultiplier;
 
             if (ioChance > 0.0 && ioDist(simRng) < ioChance && p->remainingTime > 0) {
-                // Pick a random device
+                // Pick a random free device only
                 const auto& devs = io_.devices();
-                if (!devs.empty()) {
-                    std::uniform_int_distribution<int> devIdx(0, (int)devs.size()-1);
-                    const std::string& devId = devs[devIdx(simRng)].id;
+                std::vector<const IODevice*> freeDevs;
+                for (const auto& d : devs) {
+                    if (!d.busy) freeDevs.push_back(&d);
+                }
+                if (!freeDevs.empty()) {
+                    std::uniform_int_distribution<int> devIdx(0, (int)freeDevs.size()-1);
+                    const std::string& devId = freeDevs[devIdx(simRng)]->id;
                     p->ioDevice = devId;
                     p->state    = ProcessState::WAITING;
                     io_.requestIO(p->pid, p->name, devId);
@@ -363,6 +367,7 @@ void Simulator::processEvents(int tick) {
                 for (auto& core : cores_) {
                     if (core.current == p) core.current = nullptr;
                 }
+                // erase+push_back guarantees a single entry even if called twice
                 waitingList_.erase(
                     std::remove(waitingList_.begin(), waitingList_.end(), p),
                     waitingList_.end());
@@ -370,6 +375,7 @@ void Simulator::processEvents(int tick) {
                 log("[T=" + std::to_string(tick) + "] EVENT WAIT_SIGNAL P" +
                     std::to_string(ev.pid) + " (" + p->name + ")");
             }
+            // If already WAITING (e.g. random IO fired this same tick), skip silently
         }
     }
 }
