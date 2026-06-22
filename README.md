@@ -1,5 +1,15 @@
 # Simulador de Sistema Operativo
 
+## 👥 Integrantes
+
+* Candia Usca, Zhaid Genaro - 20241096K
+* Morales Quispe, Rodrigo - 20241215J
+* Pérez López, Tom Jordan - 20240376J
+* Reyes Campos, Ricardo Gaspar - 20244014E 
+
+
+## 📂 Estructura del Repositorio
+
 ```text
 Proy_SO_2026_1/
 ├── .gitignore                   # Archivos y carpetas ignorados por Git
