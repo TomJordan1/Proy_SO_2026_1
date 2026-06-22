@@ -1,7 +1,7 @@
 # Simulador de Sistema Operativo
 
 <p align="center">
-  <img src="example.gif" width="250" alt="Ejemplo de uso">
+  <img src="example.gif" width="750" alt="Ejemplo de uso">
 </p>
 
 ## 👥 Integrantes
