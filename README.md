@@ -1,4 +1,4 @@
-# Simulador de Sistema Operativo
+# PatatOS - Simulador de Sistema Operativo
 
 <p align="center">
   <img src="example.gif" width="750" alt="Ejemplo de uso">
