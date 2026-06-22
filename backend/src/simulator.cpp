@@ -326,8 +326,24 @@ void Simulator::processEvents(int tick) {
         PCB* p = findProcess(ev.pid);
         if (!p) continue;
 
-        if (ev.action == "CANCEL" || ev.action == "CONTINUE") {
-            // Cancel/Complete the process's IO
+        if (ev.action == "CANCEL") {
+            // Cancel the process's IO
+            io_.cancelIO(ev.pid);
+            if (p->state == ProcessState::WAITING) {
+                p->ioDevice = std::nullopt;
+                p->state    = ProcessState::ERROR;
+                p->errorCode = ErrorCode::CANCEL_USR;
+                p->finishTick = tick;
+                waitingList_.erase(
+                    std::remove(waitingList_.begin(), waitingList_.end(), p),
+                    waitingList_.end());
+                memory_.free(ev.pid);
+                completedCount_++;
+                log("[T=" + std::to_string(tick) + "] EVENT CANCEL P" +
+                    std::to_string(ev.pid) + " (" + p->name + ") - Aborted");
+            }
+        } else if (ev.action == "CONTINUE") {
+            // Complete the process's IO
             io_.cancelIO(ev.pid);
             if (p->state == ProcessState::WAITING) {
                 p->ioDevice = std::nullopt;
@@ -336,7 +352,7 @@ void Simulator::processEvents(int tick) {
                     std::remove(waitingList_.begin(), waitingList_.end(), p),
                     waitingList_.end());
                 scheduler_.admit(p, readyQueues_);
-                log("[T=" + std::to_string(tick) + "] EVENT " + ev.action + " P" +
+                log("[T=" + std::to_string(tick) + "] EVENT CONTINUE P" +
                     std::to_string(ev.pid) + " (" + p->name + ")");
             }
         } else if (ev.action == "WAIT_FOR_SIGNAL") {

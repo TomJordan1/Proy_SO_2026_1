@@ -36,13 +36,16 @@ def main():
     app.setFont(QFont("Segoe UI", 10))
 
     # ── Configuración inicial ─────────────────────────────────────────────────
+    from simulation.paths import SHARED_DATA_DIR, OUTPUT_PATH
+    if not os.path.exists(SHARED_DATA_DIR):
+        os.makedirs(SHARED_DATA_DIR, exist_ok=True)
+
     dlg = ConfigDialog()
     if dlg.exec() != QDialog.DialogCode.Accepted:
         sys.exit(0)
 
     # El diálogo ha creado "escenario_modelo.json" y fingió ejecutar C++.
     # Ahora deberíamos tener "output_modelo.json".
-    from simulation.paths import OUTPUT_PATH
     output_file = OUTPUT_PATH
     if not os.path.exists(output_file):
         QMessageBox.critical(None, "Error", f"No se encontró el archivo {output_file} generado por el backend.")

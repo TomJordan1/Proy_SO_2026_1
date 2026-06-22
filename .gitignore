@@ -1,6 +1,7 @@
 **/__pycache__
-*.json
+shared_data/
+**.json
 *.pdf
 !docs/*.json
 !docs/*.pdf
-/shared_data/*.json
+

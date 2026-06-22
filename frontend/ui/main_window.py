@@ -455,7 +455,8 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import QCoreApplication
 
-        if not os.path.exists("escenario_modelo.json"):
+        from simulation.paths import ESCENARIO_PATH
+        if not os.path.exists(ESCENARIO_PATH):
             return
             
         was_running = self.clock.is_running

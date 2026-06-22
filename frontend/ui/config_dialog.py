@@ -251,7 +251,7 @@ class ConfigDialog(QDialog):
         g.addWidget(self.combo_alloc, 3, 1, 1, 2)
 
         self.chk_mmu = QCheckBox("Habilitar MMU simulada (traducción lógico→físico)")
-        self.chk_mmu.setChecked(True)
+        self.chk_mmu.setChecked(False)
         g.addWidget(self.chk_mmu, 4, 0, 1, 3)
 
         mmu_note = _lbl(
@@ -808,7 +808,7 @@ class ConfigDialog(QDialog):
         src = "del SO real (psutil)" if self.radio_sys.isChecked() else "manuales"
         QMessageBox.information(
             self, "Exportado",
-            f"Se generó escenario_modelo.json con {n} procesos {src}."
+            f"Se generó input.json con {n} procesos {src}."
         )
 
     def _generate_and_view(self):

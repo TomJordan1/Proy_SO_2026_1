@@ -4,7 +4,7 @@
 #include <vector>
 
 // ─── Process States ─────────────────────────────────────────────────────────
-enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED };
+enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED, ERROR };
 
 inline std::string stateToString(ProcessState s) {
     switch (s) {
@@ -18,6 +18,8 @@ inline std::string stateToString(ProcessState s) {
             return "WAITING";
         case ProcessState::TERMINATED:
             return "TERMINATED";
+        case ProcessState::ERROR:
+            return "ERROR";
     }
     return "UNKNOWN";
 }
@@ -137,7 +139,7 @@ inline std::string segmentTypeToString(SegmentType t) {
 }
 
 // ─── Error Codes ─────────────────────────────────────────────────────────────
-enum class ErrorCode { NONE, SEGFAULT, DIV_ZERO, OVERFLOW_ERROR, ILLEGAL_ACCESS };
+enum class ErrorCode { NONE, SEGFAULT, DIV_ZERO, OVERFLOW_ERROR, ILLEGAL_ACCESS, CANCEL_USR };
 
 inline std::string errorCodeToString(ErrorCode e) {
     switch (e) {
@@ -151,6 +153,8 @@ inline std::string errorCodeToString(ErrorCode e) {
             return "OVERFLOW_ERROR";
         case ErrorCode::ILLEGAL_ACCESS:
             return "ILLEGAL_ACCESS";
+        case ErrorCode::CANCEL_USR:
+            return "CANCEL_USR";
     }
     return "";
 }
