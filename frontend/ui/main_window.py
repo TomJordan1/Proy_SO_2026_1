@@ -369,6 +369,31 @@ class MainWindow(QMainWindow):
             "PatatOS v2.0 — Simulador Educativo SO", Colors.TEXT_MUTED
         ))
 
+    def _update_playback_buttons(self, running: bool):
+        """Colorea los botones Iniciar/Pausar según el estado actual."""
+        if running:
+            # Iniciar → apagado (gris), Pausar → encendido (ámbar)
+            self.btn_start.setStyleSheet(
+                "QPushButton { background: #2a2a2a; color: #555; border-radius: 4px;"
+                " padding: 0 10px; border: 1px solid #333; }"
+            )
+            self.btn_pause.setStyleSheet(
+                "QPushButton { background: #b45309; color: #fff; font-weight: bold;"
+                " border-radius: 4px; padding: 0 10px; border: none; }"
+                "QPushButton:hover { background: #d97706; }"
+            )
+        else:
+            # Iniciar → encendido (verde), Pausar → apagado (gris)
+            self.btn_start.setStyleSheet(
+                "QPushButton { background: #166534; color: #fff; font-weight: bold;"
+                " border-radius: 4px; padding: 0 10px; border: none; }"
+                "QPushButton:hover { background: #16a34a; }"
+            )
+            self.btn_pause.setStyleSheet(
+                "QPushButton { background: #2a2a2a; color: #555; border-radius: 4px;"
+                " padding: 0 10px; border: 1px solid #333; }"
+            )
+        
     # ─────────────────────────────────────────────────────────────────────────
     # Slots de control
     # ─────────────────────────────────────────────────────────────────────────
@@ -377,11 +402,13 @@ class MainWindow(QMainWindow):
         self.clock.start()
         self.btn_start.setEnabled(False)
         self.btn_pause.setEnabled(True)
+        self._update_playback_buttons(running=True)
 
     def _on_pause(self):
         self.clock.pause()
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
+        self._update_playback_buttons(running=False)
 
     def _on_reset(self):
         reply = QMessageBox.question(
@@ -892,6 +919,7 @@ class MainWindow(QMainWindow):
 class _NewProcessDialog(QDialog):
     def __init__(self, current_tick: int, parent=None):
         super().__init__(parent)
+        self._update_playback_buttons(running=False)  # estado inicial: parado
         self.setWindowTitle("Añadir Proceso al Escenario")
         self.setModal(True)
         self.setFixedSize(360, 290)
