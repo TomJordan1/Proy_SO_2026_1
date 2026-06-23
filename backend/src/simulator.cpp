@@ -290,19 +290,6 @@ void Simulator::executeOneCPUTick(int tick) {
 
         if (cfg_.memoryMode == MemoryMode::PAGED) {
             int vpn = (p->pc * 4) / PAGE_SIZE_BYTES; // Every instruction is 4 bytes
-            
-            // --- Random Memory Jump (Demand Paging simulation) ---
-            std::uniform_real_distribution<double> jumpDist(0.0, 1.0);
-            if (jumpDist(simRng) < cfg_.errorProbability && p->memorySizeMB > 0) {
-                int maxPages = (p->memorySizeMB * 1024) / PAGE_SIZE_KB;
-                if (maxPages > 0) {
-                    std::uniform_int_distribution<int> pageDist(0, maxPages - 1);
-                    vpn = pageDist(simRng);
-                    log("[T=" + std::to_string(tick) + "] MEM_JUMP P" + std::to_string(p->pid) + " saltó al VPN " + std::to_string(vpn));
-                }
-            }
-            // -----------------------------------------------------
-
             int penalty = pagedMemory_->accessPage(p->pid, vpn, SegmentType::TEXT, tick, false);
             if (penalty == -1) {
                 // Segfault / OOM
