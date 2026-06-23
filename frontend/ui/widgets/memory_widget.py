@@ -31,6 +31,11 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QPushButton,
+    QDialog,
+    QComboBox,
+    QHeaderView,
+    QGridLayout,
 )
 
 from ui.styles import Colors, pid_color
