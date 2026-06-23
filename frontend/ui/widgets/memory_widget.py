@@ -457,10 +457,18 @@ class MemoryWidget(QWidget):
             self._tlb_table.setItem(i, 1, QTableWidgetItem(str(e.get("vpn"))))
             self._tlb_table.setItem(i, 2, QTableWidgetItem(str(e.get("frame_number"))))
             
-        ptables = d.get("page_tables", [])
+        proc_frames = d.get("process_frames", [])
         self._pt_data = {}
-        for p in ptables:
-            pid = p.get("pid")
+        for f in proc_frames:
+            pid = f.get("pid")
+            if pid is None: continue
+            p = {
+                "vpn": f.get("vpn"),
+                "frame": f.get("index"),
+                "valid": True,
+                "referenced": f.get("referenced"),
+                "modified": f.get("modified")
+            }
             self._pt_data.setdefault(pid, []).append(p)
             
         # Desconectar para no llamar 2 veces
@@ -512,39 +520,52 @@ class MemoryWidget(QWidget):
             self._swap_bar.setVisible(True)
             self._mmu.setVisible(False)
             
-            frames = segments.get("frames", [])
+            total_frames = segments.get("total_frames", 0)
+            os_pages = segments.get("os_reserved_frames", 0)
+            proc_frames = segments.get("process_frames", [])
+            
             ram_segments = []
+            if os_pages > 0:
+                ram_segments.append({
+                    "is_free": False, "pid": None, "segment_type": "os",
+                    "size": (os_pages * 4.0) / 1024.0, 
+                    "label": f"OS Reserved ({os_pages} frames)"
+                })
+                
+            curr_idx = os_pages
             used_pages = 0
-            os_pages = 0
-            for f in frames:
-                is_free = f.get("is_free", True)
-                seg_type = str(f.get("segment_type", "FREE")).lower()
+            
+            # Sort just in case, though backend should send them in order
+            for f in sorted(proc_frames, key=lambda x: x.get("index", 0)):
+                idx = f.get("index", 0)
+                if idx > curr_idx:
+                    free_count = idx - curr_idx
+                    ram_segments.append({
+                        "is_free": True, "pid": None, "segment_type": "free",
+                        "size": (free_count * 4.0) / 1024.0, 
+                        "label": f"Free ({free_count} frames)"
+                    })
+                
                 pid_val = f.get("pid")
                 vpn = f.get("vpn", 0)
-                idx = f.get("index", 0)
+                seg_type = str(f.get("segment_type", "FREE")).lower()
+                ram_segments.append({
+                    "is_free": False, "pid": pid_val, "segment_type": seg_type,
+                    "size": 4.0 / 1024.0, 
+                    "label": f"F{idx} (P{pid_val} VPN {vpn})"
+                })
+                used_pages += 1
+                curr_idx = idx + 1
                 
-                if seg_type == "os":
-                    os_pages += 1
-                elif not is_free and pid_val is not None:
-                    used_pages += 1
+            if curr_idx < total_frames:
+                free_count = total_frames - curr_idx
+                ram_segments.append({
+                    "is_free": True, "pid": None, "segment_type": "free",
+                    "size": (free_count * 4.0) / 1024.0, 
+                    "label": f"Free ({free_count} frames)"
+                })
                 
-                if is_free:
-                    label = f"Frame {idx} [libre]"
-                elif seg_type == "os":
-                    label = f"Frame {idx} [OS]"
-                else:
-                    label = f"F{idx} (P{pid_val} VPN {vpn})"
-                
-                seg = {
-                    "is_free": is_free,
-                    "pid": pid_val,
-                    "segment_type": seg_type,
-                    "size": 4.0 / 1024.0,  # 4KB por frame
-                    "label": label
-                }
-                ram_segments.append(seg)
-                
-            total_ram_mb = len(frames) * 4.0 / 1024.0
+            total_ram_mb = total_frames * 4.0 / 1024.0
             self._bar.set_segments(ram_segments, total_ram_mb)
             
             swap = segments.get("swap", {})
@@ -558,7 +579,7 @@ class MemoryWidget(QWidget):
             ]
             self._swap_bar.set_segments(swap_segments, max_swap * 4.0 / 1024.0)
             
-            free_pages = len(frames) - os_pages - used_pages
+            free_pages = total_frames - os_pages - used_pages
             self._set_val(self._s_frag, "0.0%")
             self._set_val(self._s_used, f"{used_pages * 4.0 / 1024.0:.1f} MB")
             self._set_val(self._s_free, f"{free_pages * 4.0 / 1024.0:.1f} MB")

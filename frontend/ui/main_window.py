@@ -817,13 +817,14 @@ class MainWindow(QMainWindow):
         if isinstance(mem_block, dict) and mem_block.get("type") == "PAGED":
             # Modo paginado: pasar el dict completo al widget; construir mem_stats para statusbar
             mem_segments = mem_block   # memory_widget.update() detecta type==PAGED
-            frames = mem_block.get("frames", [])
-            os_pages  = sum(1 for f in frames if str(f.get("segment_type","")).lower() == "os")
-            used_pages = sum(1 for f in frames if not f.get("is_free", True)
-                             and str(f.get("segment_type","")).lower() != "os"
-                             and f.get("pid") is not None)
-            free_pages = len(frames) - os_pages - used_pages
-            total_mb   = round(len(frames) * 4.0 / 1024.0, 1)
+            proc_frames = mem_block.get("process_frames", [])
+            total_frames = mem_block.get("total_frames", 0)
+            os_pages = mem_block.get("os_reserved_frames", 0)
+            
+            used_pages = len(proc_frames)
+            free_pages = total_frames - os_pages - used_pages
+            
+            total_mb   = round(total_frames * 4.0 / 1024.0, 1)
             used_mb    = round(used_pages  * 4.0 / 1024.0, 3)
             free_mb    = round(free_pages  * 4.0 / 1024.0, 3)
             mem_stats  = {

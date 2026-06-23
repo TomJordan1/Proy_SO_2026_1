@@ -171,26 +171,26 @@ json JsonWriter::serializeMemory(const MemoryManager& mem) const {
 json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
     json j;
     
-    // Frames
-    json framesArr = json::array();
     const auto& ft = mem.getFrameTable();
+    j["total_frames"] = ft.getTotalFrames();
+    j["os_reserved_frames"] = ft.getOsReservedFrames();
+
+    // Process Frames (sparse)
+    json framesArr = json::array();
     for (const auto& f : ft.getFrames()) {
-        json fObj;
-        fObj["index"] = f.index;
-        fObj["is_free"] = f.isFree;
-        if (!f.isFree) {
+        if (!f.isFree && f.segmentType != SegmentType::OS) {
+            json fObj;
+            fObj["index"] = f.index;
+            fObj["is_free"] = f.isFree;
             fObj["pid"] = f.pid.has_value() ? json(f.pid.value()) : json(nullptr);
             fObj["vpn"] = f.vpn;
             fObj["segment_type"] = segmentTypeToString(f.segmentType);
             fObj["referenced"] = f.referenced;
             fObj["modified"] = f.modified;
-        } else {
-            fObj["pid"] = nullptr;
-            fObj["segment_type"] = "FREE";
+            framesArr.push_back(fObj);
         }
-        framesArr.push_back(fObj);
     }
-    j["frames"] = framesArr;
+    j["process_frames"] = framesArr;
     
     // Swap Stats
     const auto& sm = mem.getSwapManager();
@@ -215,25 +215,6 @@ json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
         {"misses", tlb.getMisses()},
         {"entries", tlbArr}
     };
-    
-    // Page Tables
-    json ptArr = json::array();
-    // Reconstruct valid pages per process by checking frames
-    // (A more complete approach would use the PageTable itself, but FrameTable has R/M bits)
-    // We will just report present pages from FrameTable
-    for (const auto& f : ft.getFrames()) {
-        if (!f.isFree && f.pid.has_value()) {
-            json pObj;
-            pObj["pid"] = f.pid.value();
-            pObj["vpn"] = f.vpn;
-            pObj["frame"] = f.index;
-            pObj["referenced"] = f.referenced;
-            pObj["modified"] = f.modified;
-            pObj["valid"] = true; // since it's in memory
-            ptArr.push_back(pObj);
-        }
-    }
-    j["page_tables"] = ptArr;
     
     return j;
 }

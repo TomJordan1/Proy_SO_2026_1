@@ -33,6 +33,7 @@ public:
     FrameTable(int totalMemoryMB, int osReservedMB);
 
     int getTotalFrames() const { return totalFrames_; }
+    int getOsReservedFrames() const { return osReservedFrames_; }
     int getFreeFramesCount() const { return freeFrames_; }
     
     // Allocate a free frame if available. Returns frame index or -1 if full.
