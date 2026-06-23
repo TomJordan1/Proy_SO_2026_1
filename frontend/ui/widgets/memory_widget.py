@@ -143,17 +143,26 @@ class _MemoryBar(QWidget):
         self._recalculate_rects()
 
     def _recalculate_rects(self) -> None:
-        
         w = self.width()
         rects = []
         cumulative = 0.0
         prev_x = 0
 
         for seg in self._segments:
-            cumulative += _seg_size(seg)
-            frac = cumulative / self._total_mb
+            size_val = _seg_size(seg)
+            cumulative += size_val
+            frac = cumulative / self._total_mb if self._total_mb > 0 else 0
             x_end = round(frac * w)
             seg_w = max(x_end - prev_x, 0)
+            
+            # Enforce minimum width for visible process segments (so tiny pages don't disappear)
+            if size_val > 0:
+                seg_type = str(seg.get("segment_type") or seg.get("type") or "").lower()
+                is_free = seg.get("is_free", seg.get("pid") is None)
+                if not is_free and seg_type != "os" and seg_w < 2:
+                    seg_w = 2
+                    x_end = prev_x + 2
+
             rects.append((prev_x, seg_w, seg))
             prev_x = x_end
 
@@ -342,12 +351,22 @@ class MemoryWidget(QWidget):
         root.setSpacing(6)
         root.setContentsMargins(0, 0, 0, 0)
 
-        # Header label
+        # Header row
+        hdr_layout = QHBoxLayout()
         hdr = QLabel("Memory Map")
         hdr.setStyleSheet(
             f"color:{Colors.ACCENT_LIGHT}; font-size:10pt; font-weight:700;"
         )
-        root.addWidget(hdr)
+        hdr_layout.addWidget(hdr)
+        
+        self._btn_vm = QPushButton("🔍 Inspector VM")
+        self._btn_vm.setStyleSheet(f"background:{Colors.BG_ELEVATED}; border:1px solid {Colors.BORDER}; color:{Colors.ACCENT_LIGHT}; padding:4px 8px; border-radius:4px;")
+        self._btn_vm.setVisible(False)
+        self._btn_vm.clicked.connect(self._show_vm_inspector)
+        hdr_layout.addWidget(self._btn_vm)
+        hdr_layout.addStretch()
+        
+        root.addLayout(hdr_layout)
 
         # Bar
         self._bar = _MemoryBar()
@@ -361,18 +380,12 @@ class MemoryWidget(QWidget):
         # Stats row ────────────────────────────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(6)
-
-        self._btn_vm = QPushButton("🔍 Inspector VM")
-        self._btn_vm.setStyleSheet(f"background:{Colors.BG_ELEVATED}; border:1px solid {Colors.BORDER}; color:{Colors.ACCENT_LIGHT}; padding:4px 8px; border-radius:4px;")
-        self._btn_vm.setVisible(False)
-        self._btn_vm.clicked.connect(self._show_vm_inspector)
         
         self._s_frag  = _stat_label("Fragmentation", "—", Colors.STATE_WAITING)
         self._s_used  = _stat_label("Used",          "—", Colors.STATE_RUNNING)
         self._s_free  = _stat_label("Free",          "—", Colors.STATE_READY)
         self._s_strat = _stat_label("Strategy",      "—", Colors.TEXT_SEC)
 
-        stats_row.addWidget(self._btn_vm)
         for w in (self._s_frag, self._s_used, self._s_free, self._s_strat):
             stats_row.addWidget(w)
         stats_row.addStretch()
