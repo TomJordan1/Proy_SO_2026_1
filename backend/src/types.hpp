@@ -188,6 +188,17 @@ inline std::string replacementAlgoToString(ReplacementAlgorithm a) {
     return "FIFO";
 }
 
+// ─── Memory Access Pattern ───────────────────────────────────────────────────
+enum class MemoryAccessPattern { SEQUENTIAL, LOCALITY };
+
+inline std::string accessPatternToString(MemoryAccessPattern p) {
+    switch (p) {
+        case MemoryAccessPattern::SEQUENTIAL: return "SEQUENTIAL";
+        case MemoryAccessPattern::LOCALITY: return "LOCALITY";
+    }
+    return "SEQUENTIAL";
+}
+
 // ─── Error Codes ─────────────────────────────────────────────────────────────
 enum class ErrorCode { NONE, SEGFAULT, DIV_ZERO, OVERFLOW_ERROR, ILLEGAL_ACCESS, CANCEL_USR };
 

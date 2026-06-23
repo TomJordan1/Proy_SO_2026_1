@@ -45,6 +45,10 @@ struct PCB {
     int memoryBaseAddress = 0; // physical base in MB
     int stackPointer = 0;
     int heapPointer = 0;
+    MemoryAccessPattern accessPattern = MemoryAccessPattern::SEQUENTIAL;
+    int memCurrentVpn = 0;
+    int memWorkingSetBase = 0;
+    int memWorkingSetSize = 1;
 
     // I/O
     std::optional<std::string> ioDevice; // device being waited on

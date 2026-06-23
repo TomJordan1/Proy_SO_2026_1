@@ -289,26 +289,69 @@ void Simulator::executeOneCPUTick(int tick) {
         p->registers.BX = (p->pc / 2) % 256;
 
         if (cfg_.memoryMode == MemoryMode::PAGED) {
-            int vpn = (p->pc * 4) / PAGE_SIZE_BYTES; // Every instruction is 4 bytes
-            int penalty = pagedMemory_->accessPage(p->pid, vpn, SegmentType::TEXT, tick, false);
-            if (penalty == -1) {
-                // Segfault / OOM
-                p->state = ProcessState::ERROR;
-                p->errorCode = ErrorCode::SEGFAULT;
-                p->finishTick = tick;
-                pagedMemory_->freeProcess(p->pid);
-                completedCount_++;
-                core.current = nullptr;
-                log("[T=" + std::to_string(tick) + "] ERROR P" + std::to_string(p->pid) + " (PAGE_FAULT OOM)");
-                continue;
-            } else if (penalty > 0) {
-                p->state = ProcessState::WAITING;
-                p->ioDevice = "PAGE_FAULT";
-                p->pageFaultRemainingTicks = penalty;
-                waitingList_.push_back(p);
-                core.current = nullptr;
-                log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
-                continue; // Pause execution for this process
+            bool pageFaultOccurred = false;
+            int accessesPerTick = 50; // Batch of memory accesses to simulate real CPU speed
+            int maxPages = (p->memorySizeMB * 1024) / PAGE_SIZE_KB;
+
+            // Initialize memory pattern lazily for the process
+            if (p->memWorkingSetSize <= 1 && maxPages > 0) {
+                std::uniform_int_distribution<int> typeDist(0, 1);
+                p->accessPattern = (typeDist(simRng) == 0) ? MemoryAccessPattern::SEQUENTIAL : MemoryAccessPattern::LOCALITY;
+                p->memWorkingSetSize = std::max(1, (int)(maxPages * 0.20)); // 20% working set
+                p->memWorkingSetBase = 0;
+                p->memCurrentVpn = 0;
+            }
+
+            for (int i = 0; i < accessesPerTick; ++i) {
+                int vpn = 0;
+                if (maxPages > 0) {
+                    if (p->accessPattern == MemoryAccessPattern::SEQUENTIAL) {
+                        vpn = p->memCurrentVpn;
+                        p->memCurrentVpn = (p->memCurrentVpn + 1) % maxPages;
+                    } else {
+                        // LOCALITY (80-20 rule)
+                        std::uniform_real_distribution<double> dist(0.0, 1.0);
+                        if (dist(simRng) < 0.8) {
+                            std::uniform_int_distribution<int> wsDist(0, p->memWorkingSetSize - 1);
+                            vpn = (p->memWorkingSetBase + wsDist(simRng)) % maxPages;
+                        } else {
+                            std::uniform_int_distribution<int> anyDist(0, maxPages - 1);
+                            vpn = anyDist(simRng);
+                        }
+                        
+                        // Slowly drift the working set
+                        if (dist(simRng) < 0.05) {
+                            p->memWorkingSetBase = (p->memWorkingSetBase + 1) % maxPages;
+                        }
+                    }
+                }
+
+                int penalty = pagedMemory_->accessPage(p->pid, vpn, SegmentType::DATA, tick, false);
+                if (penalty == -1) {
+                    // Segfault / OOM
+                    p->state = ProcessState::ERROR;
+                    p->errorCode = ErrorCode::SEGFAULT;
+                    p->finishTick = tick;
+                    pagedMemory_->freeProcess(p->pid);
+                    completedCount_++;
+                    core.current = nullptr;
+                    log("[T=" + std::to_string(tick) + "] ERROR P" + std::to_string(p->pid) + " (PAGE_FAULT OOM)");
+                    pageFaultOccurred = true;
+                    break;
+                } else if (penalty > 0) {
+                    p->state = ProcessState::WAITING;
+                    p->ioDevice = "PAGE_FAULT";
+                    p->pageFaultRemainingTicks = penalty;
+                    waitingList_.push_back(p);
+                    core.current = nullptr;
+                    log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
+                    pageFaultOccurred = true;
+                    break;
+                }
+            }
+
+            if (pageFaultOccurred) {
+                continue; // Skip decrementing burst time and quantum since the CPU stalled
             }
         }
 
