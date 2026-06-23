@@ -175,7 +175,7 @@ json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
     j["total_frames"] = ft.getTotalFrames();
     j["os_reserved_frames"] = ft.getOsReservedFrames();
 
-    // Process Frames (sparse)
+    // Process Frames (sparse) - ONLY write if changed!
     json framesArr = json::array();
     for (const auto& f : ft.getFrames()) {
         if (!f.isFree && f.segmentType != SegmentType::OS) {
@@ -190,8 +190,13 @@ json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
             framesArr.push_back(fObj);
         }
     }
-    j["process_frames"] = framesArr;
-    
+
+    std::string currentDump = framesArr.dump();
+    if (currentDump != lastProcessFramesDump_) {
+        j["process_frames"] = framesArr;
+        lastProcessFramesDump_ = currentDump;
+    }
+    // else: omit "process_frames" completely to save space
     // Swap Stats
     const auto& sm = mem.getSwapManager();
     j["swap"] = {

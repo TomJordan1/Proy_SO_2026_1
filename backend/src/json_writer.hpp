@@ -82,4 +82,7 @@ class JsonWriter {
     json serializeIODevices(const IOManager &io) const;
     json serializeMetrics(const TickSnapshot &snap) const;
     json serializeTimeline(const TickSnapshot &snap) const;
+
+    // Delta compression state
+    mutable std::string lastProcessFramesDump_;
 };
