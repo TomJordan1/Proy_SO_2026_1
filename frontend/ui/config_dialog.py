@@ -547,6 +547,9 @@ class ConfigDialog(QDialog):
     def _on_paged_toggled(self, checked: bool):
         self.frame_contig.setVisible(not checked)
         self.frame_paged.setVisible(checked)
+        # Bajar la RAM a 128 MB por defecto al habilitar paginación para forzar Swap
+        if checked and self.spin_mem.value() > 256:
+            self.spin_mem.setValue(128)
 
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
