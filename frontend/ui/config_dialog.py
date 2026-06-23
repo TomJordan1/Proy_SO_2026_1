@@ -214,7 +214,7 @@ class ConfigDialog(QDialog):
         g.setSpacing(10)
         g.setContentsMargins(12, 12, 12, 12)
 
-        g.addWidget(_lbl("Memoria total (MB):"), 0, 0)
+        g.addWidget(_lbl("Memoria RAM total (MB):"), 0, 0)
         self.spin_mem = QSpinBox()
         self.spin_mem.setRange(128, 4096)
         self.spin_mem.setValue(1024)
@@ -226,21 +226,32 @@ class ConfigDialog(QDialog):
         self.lbl_mem_total = _lbl("(1024 MB disponibles)", Colors.ACCENT_LIGHT)
         g.addWidget(self.lbl_mem_total, 0, 2)
 
-        g.addWidget(_lbl("Tamaño mínimo de segmento (MB):"), 1, 0)
+        # Mode
+        self.chk_paged = QCheckBox("Habilitar Modo Paginado (4KB)")
+        self.chk_paged.setChecked(False)
+        self.chk_paged.toggled.connect(self._on_paged_toggled)
+        g.addWidget(self.chk_paged, 1, 0, 1, 3)
+
+        # Contiguous Params Frame
+        self.frame_contig = QFrame()
+        g_contig = QGridLayout(self.frame_contig)
+        g_contig.setContentsMargins(0,0,0,0)
+        
+        g_contig.addWidget(_lbl("Tamaño mínimo de segmento (MB):"), 0, 0)
         self.spin_min_seg = QSpinBox()
         self.spin_min_seg.setRange(1, 64)
         self.spin_min_seg.setValue(4)
         self.spin_min_seg.setFixedWidth(70)
-        g.addWidget(self.spin_min_seg, 1, 1)
+        g_contig.addWidget(self.spin_min_seg, 0, 1)
 
-        g.addWidget(_lbl("Tamaño máximo de proceso (MB):"), 2, 0)
+        g_contig.addWidget(_lbl("Tamaño máximo de proceso (MB):"), 1, 0)
         self.spin_max_proc = QSpinBox()
         self.spin_max_proc.setRange(8, 1024)
         self.spin_max_proc.setValue(256)
         self.spin_max_proc.setFixedWidth(90)
-        g.addWidget(self.spin_max_proc, 2, 1)
+        g_contig.addWidget(self.spin_max_proc, 1, 1)
 
-        g.addWidget(_lbl("Estrategia de asignación:"), 3, 0)
+        g_contig.addWidget(_lbl("Estrategia de asignación:"), 2, 0)
         self.combo_alloc = QComboBox()
         self.combo_alloc.addItems([
             "First Fit — primer hueco libre suficiente",
@@ -248,27 +259,56 @@ class ConfigDialog(QDialog):
             "Worst Fit — hueco más grande disponible",
         ])
         self.combo_alloc.setFixedWidth(280)
-        g.addWidget(self.combo_alloc, 3, 1, 1, 2)
+        g_contig.addWidget(self.combo_alloc, 2, 1, 1, 2)
+        
+        self.chk_mmu = QCheckBox("Habilitar MMU abstracta (Segmentación)")
+        self.chk_mmu.setChecked(True)
+        g_contig.addWidget(self.chk_mmu, 3, 0, 1, 3)
+        g.addWidget(self.frame_contig, 2, 0, 1, 3)
 
-        self.chk_mmu = QCheckBox("Habilitar MMU simulada (traducción lógico→físico)")
-        self.chk_mmu.setChecked(False)
-        g.addWidget(self.chk_mmu, 4, 0, 1, 3)
-
-        mmu_note = _lbl(
-            "⚠️  Memoria Virtual (paginación): disponible en versión futura. "
-            "La arquitectura actual soporta el upgrade sin cambiar el engine.",
-            Colors.TEXT_MUTED, 8
-        )
-        mmu_note.setWordWrap(True)
-        g.addWidget(mmu_note, 5, 0, 1, 3)
+        # Paged Params Frame
+        self.frame_paged = QFrame()
+        g_paged = QGridLayout(self.frame_paged)
+        g_paged.setContentsMargins(0,0,0,0)
+        
+        g_paged.addWidget(_lbl("Tipo de Tabla de Páginas:"), 0, 0)
+        self.combo_pt = QComboBox()
+        self.combo_pt.addItems(["SINGLE_LEVEL", "TWO_LEVEL", "INVERTED", "HASHED"])
+        g_paged.addWidget(self.combo_pt, 0, 1)
+        
+        g_paged.addWidget(_lbl("Algoritmo de Reemplazo:"), 1, 0)
+        self.combo_repl = QComboBox()
+        self.combo_repl.addItems(["NRU", "FIFO", "SECOND_CHANCE", "CLOCK", "LRU", "NFU", "AGING", "WORKING_SET", "WSCLOCK"])
+        g_paged.addWidget(self.combo_repl, 1, 1)
+        
+        g_paged.addWidget(_lbl("Tipo de Swap:"), 2, 0)
+        self.combo_swap_type = QComboBox()
+        self.combo_swap_type.addItems(["HDD", "SSD"])
+        g_paged.addWidget(self.combo_swap_type, 2, 1)
+        
+        g_paged.addWidget(_lbl("Tamaño Swap (MB):"), 3, 0)
+        self.spin_swap = QSpinBox()
+        self.spin_swap.setRange(128, 8192)
+        self.spin_swap.setValue(2048)
+        self.spin_swap.setSingleStep(128)
+        g_paged.addWidget(self.spin_swap, 3, 1)
+        
+        g_paged.addWidget(_lbl("Entradas TLB:"), 4, 0)
+        self.spin_tlb = QSpinBox()
+        self.spin_tlb.setRange(4, 256)
+        self.spin_tlb.setValue(16)
+        g_paged.addWidget(self.spin_tlb, 4, 1)
+        
+        g.addWidget(self.frame_paged, 3, 0, 1, 3)
+        self.frame_paged.setVisible(False)
 
         g.addWidget(_hint(
-            "Menos RAM → más fragmentación → procesos rechazados por falta de espacio. "
-            "First Fit es más rápido. Best Fit minimiza desperdicio interno. "
-            "Worst Fit preserva bloques grandes para procesos futuros."
-        ), 6, 0, 1, 3)
+            "En Modo Contiguo, la memoria se gestiona por bloques y puede haber fragmentación externa. "
+            "En Modo Paginado, todo se gestiona en páginas de 4KB con Memoria Virtual y Swap, eliminando la "
+            "fragmentación externa e implementando reemplazo de páginas."
+        ), 4, 0, 1, 3)
 
-        g.setRowStretch(7, 1)
+        g.setRowStretch(5, 1)
         return w
 
     def _tab_devices(self) -> QWidget:
@@ -504,6 +544,10 @@ class ConfigDialog(QDialog):
         else:
             self.chk_preemptive.setEnabled(True)
 
+    def _on_paged_toggled(self, checked: bool):
+        self.frame_contig.setVisible(not checked)
+        self.frame_paged.setVisible(checked)
+
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
         self.sys_widget.setVisible(sys)
@@ -575,10 +619,17 @@ class ConfigDialog(QDialog):
         self.spin_ctx_cost.setValue(1)
         self.chk_preemptive.setChecked(True)
         self.spin_mem.setValue(1024)
+        self.chk_paged.setChecked(False)
         self.spin_min_seg.setValue(4)
         self.spin_max_proc.setValue(256)
         self.combo_alloc.setCurrentIndex(0)
         self.chk_mmu.setChecked(True)
+        
+        self.combo_pt.setCurrentIndex(0)
+        self.combo_repl.setCurrentIndex(0)
+        self.combo_swap_type.setCurrentIndex(0)
+        self.spin_swap.setValue(2048)
+        self.spin_tlb.setValue(16)
         for attr, spin in self._dev_spins.items():
             defaults = {
                 "keyboard_latency": 7, "disk_latency": 15,
@@ -637,6 +688,12 @@ class ConfigDialog(QDialog):
             max_process_mb=self.spin_max_proc.value(),
             alloc_strategy=alloc_map.get(self.combo_alloc.currentIndex(), "first"),
             mmu_enabled=self.chk_mmu.isChecked(),
+            memory_mode="PAGED" if self.chk_paged.isChecked() else "CONTIGUOUS",
+            page_table_type=self.combo_pt.currentText(),
+            replacement_algorithm=self.combo_repl.currentText(),
+            swap_device_type=self.combo_swap_type.currentText(),
+            swap_size_mb=self.spin_swap.value(),
+            tlb_size=self.spin_tlb.value(),
             # Dispositivos
             keyboard_latency=self._dev_spins["keyboard_latency"].value(),
             disk_latency=self._dev_spins["disk_latency"].value(),
@@ -761,12 +818,18 @@ class ConfigDialog(QDialog):
                     "contextSwitchCostTicks":config.context_switch_cost,
                 },
                 "memory": {
+                    "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
                     "osReservedMB":         64,
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
                     "mmuEnabled":           config.mmu_enabled,
+                    "pageTableType":        config.page_table_type,
+                    "replacementAlgorithm": config.replacement_algorithm,
+                    "swapDeviceType":       config.swap_device_type,
+                    "swapSizeMB":           config.swap_size_mb,
+                    "tlbSize":              config.tlb_size,
                 },
                 "ioDevices": [
                     {"id": "KEYBOARD", "latency": config.keyboard_latency},

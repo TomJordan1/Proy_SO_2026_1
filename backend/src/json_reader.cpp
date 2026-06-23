@@ -54,6 +54,18 @@ bool JsonReader::load(const std::string& filepath) {
                 std::string stratStr   = jget<std::string>(mem, "allocationStrategy", "FIRST_FIT");
                 config_.strategy       = parseStrategy(stratStr);
                 config_.mmuEnabled     = jget<bool>(mem, "mmuEnabled", true);
+
+                // Virtual Memory configuration
+                std::string memModeStr = jget<std::string>(mem, "mode", "CONTIGUOUS");
+                config_.memoryMode     = parseMemoryMode(memModeStr);
+                std::string ptTypeStr  = jget<std::string>(mem, "pageTableType", "SINGLE_LEVEL");
+                config_.pageTableType  = parsePageTableType(ptTypeStr);
+                std::string swapTypeStr= jget<std::string>(mem, "swapDevice", "HDD");
+                config_.swapDeviceType = parseSwapDeviceType(swapTypeStr);
+                std::string repAlgoStr = jget<std::string>(mem, "replacementAlgorithm", "FIFO");
+                config_.replacementAlgorithm = parseReplacementAlgorithm(repAlgoStr);
+                config_.tlbSize        = jget<int>(mem, "tlbSize", 16);
+                config_.swapSizeMB     = jget<int>(mem, "swapSizeMB", 2048);
             }
 
             if (hw.contains("ioDevices") && hw["ioDevices"].is_array()) {

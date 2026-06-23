@@ -811,9 +811,30 @@ class MainWindow(QMainWindow):
         # ── CPU Cores ────────────────────────────────────────────────────────
         self.cpu_widget.update(snap["cores"])
 
-        # ── Memory — support both new nested format and legacy flat format ───
+        # ── Memory — support PAGED, CONTIGUOUS and legacy flat formats ─────────
         mem_block = snap.get("memory")
-        if isinstance(mem_block, dict) and "blocks" in mem_block:
+        mmu_dict = {}
+        if isinstance(mem_block, dict) and mem_block.get("type") == "PAGED":
+            # Modo paginado: pasar el dict completo al widget; construir mem_stats para statusbar
+            mem_segments = mem_block   # memory_widget.update() detecta type==PAGED
+            frames = mem_block.get("frames", [])
+            os_pages  = sum(1 for f in frames if str(f.get("segment_type","")).lower() == "os")
+            used_pages = sum(1 for f in frames if not f.get("is_free", True)
+                             and str(f.get("segment_type","")).lower() != "os"
+                             and f.get("pid") is not None)
+            free_pages = len(frames) - os_pages - used_pages
+            total_mb   = round(len(frames) * 4.0 / 1024.0, 1)
+            used_mb    = round(used_pages  * 4.0 / 1024.0, 3)
+            free_mb    = round(free_pages  * 4.0 / 1024.0, 3)
+            mem_stats  = {
+                "total_mb": total_mb,
+                "used_mb":  used_mb,
+                "free_mb":  free_mb,
+                "fragmentation": 0.0,
+                "fragmentation_percent": 0.0,
+                "strategy": "VM Paginada",
+            }
+        elif isinstance(mem_block, dict) and "blocks" in mem_block:
             mem_segments = mem_block["blocks"]
             mem_stats    = mem_block.get("stats", snap.get("memory_stats", {}))
             mmu_raw      = mem_block.get("mmu_table", [])
@@ -828,8 +849,8 @@ class MainWindow(QMainWindow):
             mem_stats    = snap.get("memory_stats", {})
             mmu_dict     = snap.get("mmu_table", {})
             
-        # Overrides visuales desde escenario_modelo.json (Mockup)
-        if self._live_config and "hardware" in self._live_config:
+        # Overrides visuales desde escenario_modelo.json (solo aplican a modo CONTIGUOUS)
+        if self._live_config and "hardware" in self._live_config and isinstance(mem_block, dict) and mem_block.get("type") != "PAGED":
             hw = self._live_config["hardware"]
             mem_cfg = hw.get("memory", {})
             if not mem_cfg.get("mmuEnabled", True):
@@ -840,6 +861,7 @@ class MainWindow(QMainWindow):
                 mem_stats["strategy"] = mem_cfg["allocationStrategy"]
                 
         self.memory_widget.update(mem_segments, mem_stats, mmu_dict)
+
 
         # ── Queues ───────────────────────────────────────────────────────────
         self.queue_widget.update(snap["ready_queues"], snap["waiting"])

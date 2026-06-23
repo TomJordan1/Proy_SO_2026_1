@@ -49,6 +49,9 @@ struct PCB {
     // I/O
     std::optional<std::string> ioDevice; // device being waited on
     int ioRemainingTicks = 0;
+    
+    // Page Faults
+    int pageFaultRemainingTicks = 0;
 
     // Error
     ErrorCode errorCode = ErrorCode::NONE;

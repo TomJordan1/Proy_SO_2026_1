@@ -8,6 +8,7 @@
 #include "dispatcher.hpp"
 #include "io_manager.hpp"
 #include "memory_manager.hpp"
+#include "paged_memory_manager.hpp"
 #include "pcb.hpp"
 #include "types.hpp"
 
@@ -33,6 +34,7 @@ struct TickSnapshot {
     std::vector<PCB *> waitingList;
     std::vector<PCB *> processTable;
     const MemoryManager *memory;
+    const PagedMemoryManager *pagedMemory = nullptr;
     const IOManager *ioManager;
     // Metrics
     double cpuUtilization;
@@ -76,6 +78,7 @@ class JsonWriter {
     json serializeWaiting(const std::vector<PCB *> &waiting) const;
     json serializeProcessTable(const std::vector<PCB *> &table) const;
     json serializeMemory(const MemoryManager &mem) const;
+    json serializePagedMemory(const PagedMemoryManager &mem) const;
     json serializeIODevices(const IOManager &io) const;
     json serializeMetrics(const TickSnapshot &snap) const;
     json serializeTimeline(const TickSnapshot &snap) const;

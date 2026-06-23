@@ -28,6 +28,10 @@ set(SOURCES
     src/scheduler.cpp
     src/dispatcher.cpp
     src/memory_manager.cpp
+    src/paged_memory.cpp
+    src/page_table.cpp
+    src/page_replacer.cpp
+    src/paged_memory_manager.cpp
     src/io_manager.cpp
     src/error_manager.cpp
     src/json_reader.cpp

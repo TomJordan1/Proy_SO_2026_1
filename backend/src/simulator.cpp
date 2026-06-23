@@ -23,6 +23,13 @@ Simulator::Simulator(const SimConfig& cfg)
     // Ready queues: one per MLFQ level (or 1 for other algos)
     int levels = (cfg.scheduler == SchedulerAlgo::MLFQ) ? 3 : 1;
     readyQueues_.resize(levels);
+
+    if (cfg.memoryMode == MemoryMode::PAGED) {
+        pagedMemory_ = std::make_unique<PagedMemoryManager>(
+            cfg.totalMemoryMB, cfg.osReservedMB, cfg.swapSizeMB,
+            cfg.swapDeviceType, cfg.pageTableType, cfg.replacementAlgorithm, cfg.tlbSize
+        );
+    }
 }
 
 // ─── loadProcesses ───────────────────────────────────────────────────────────
@@ -40,8 +47,17 @@ void Simulator::loadProcesses(const std::vector<ProcessDef>& defs) {
         pcb->state        = ProcessState::NEW;
 
         // Allocate memory immediately (Long-Term Scheduler pre-allocates)
-        if (memory_.allocate(pcb->pid, pcb->name, pcb->memorySizeMB)) {
-            pcb->memoryBaseAddress = memory_.baseAddress(pcb->pid);
+        if (cfg_.memoryMode == MemoryMode::PAGED) {
+            if (pagedMemory_->allocateProcess(pcb->pid, pcb->memorySizeMB, 0)) {
+                pcb->memoryBaseAddress = 0; // Virtual base address
+            } else {
+                pcb->state = ProcessState::ERROR;
+                pcb->errorCode = ErrorCode::SEGFAULT;
+            }
+        } else {
+            if (memory_.allocate(pcb->pid, pcb->name, pcb->memorySizeMB)) {
+                pcb->memoryBaseAddress = memory_.baseAddress(pcb->pid);
+            }
         }
 
         pool_.push_back(std::move(pcb));
@@ -96,6 +112,11 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
         // 8. Aging
         if (cfg_.agingEnabled) {
             applyAging(tick);
+        }
+        
+        // Paged memory tick (for algorithms like aging)
+        if (cfg_.memoryMode == MemoryMode::PAGED) {
+            pagedMemory_->tick(tick);
         }
 
         // 9. Increment waiting time for all READY processes
@@ -163,6 +184,24 @@ void Simulator::processIOCompletions(int tick) {
         log("[T=" + std::to_string(tick) + "] IO_DONE P" +
             std::to_string(pid) + " (" + p->name + ") device=" + deviceId);
     });
+
+    // Handle Page Fault Completions
+    auto it = waitingList_.begin();
+    while (it != waitingList_.end()) {
+        PCB* p = *it;
+        if (p->ioDevice.has_value() && p->ioDevice.value() == "PAGE_FAULT") {
+            p->pageFaultRemainingTicks--;
+            if (p->pageFaultRemainingTicks <= 0) {
+                p->ioDevice = std::nullopt;
+                p->state = ProcessState::READY;
+                it = waitingList_.erase(it);
+                scheduler_.admit(p, readyQueues_);
+                log("[T=" + std::to_string(tick) + "] PAGE_LOADED P" + std::to_string(p->pid) + " (" + p->name + ")");
+                continue;
+            }
+        }
+        ++it;
+    }
 }
 
 // ─── dispatchCPUs ────────────────────────────────────────────────────────────
@@ -249,6 +288,30 @@ void Simulator::executeOneCPUTick(int tick) {
         p->registers.AX = p->pc % 256;
         p->registers.BX = (p->pc / 2) % 256;
 
+        if (cfg_.memoryMode == MemoryMode::PAGED) {
+            int vpn = (p->pc * 4) / PAGE_SIZE_BYTES; // Every instruction is 4 bytes
+            int penalty = pagedMemory_->accessPage(p->pid, vpn, SegmentType::TEXT, tick, false);
+            if (penalty == -1) {
+                // Segfault / OOM
+                p->state = ProcessState::ERROR;
+                p->errorCode = ErrorCode::SEGFAULT;
+                p->finishTick = tick;
+                pagedMemory_->freeProcess(p->pid);
+                completedCount_++;
+                core.current = nullptr;
+                log("[T=" + std::to_string(tick) + "] ERROR P" + std::to_string(p->pid) + " (PAGE_FAULT OOM)");
+                continue;
+            } else if (penalty > 0) {
+                p->state = ProcessState::WAITING;
+                p->ioDevice = "PAGE_FAULT";
+                p->pageFaultRemainingTicks = penalty;
+                waitingList_.push_back(p);
+                core.current = nullptr;
+                log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
+                continue; // Pause execution for this process
+            }
+        }
+
         // Decrement remaining burst
         p->remainingTime--;
         p->quantumUsed++;
@@ -315,7 +378,11 @@ void Simulator::checkErrors(int tick) {
             log("[T=" + std::to_string(tick) + "] ERROR P" +
                 std::to_string(p->pid) + " (" + p->name + ") → " +
                 errorCodeToString(p->errorCode));
-            memory_.free(p->pid);
+            if (cfg_.memoryMode == MemoryMode::PAGED) {
+                pagedMemory_->freeProcess(p->pid);
+            } else {
+                memory_.free(p->pid);
+            }
             ++completedCount_;
             core.current = nullptr;
         }
@@ -341,7 +408,11 @@ void Simulator::processEvents(int tick) {
                 waitingList_.erase(
                     std::remove(waitingList_.begin(), waitingList_.end(), p),
                     waitingList_.end());
-                memory_.free(ev.pid);
+                if (cfg_.memoryMode == MemoryMode::PAGED) {
+                    pagedMemory_->freeProcess(ev.pid);
+                } else {
+                    memory_.free(ev.pid);
+                }
                 completedCount_++;
                 log("[T=" + std::to_string(tick) + "] EVENT CANCEL P" +
                     std::to_string(ev.pid) + " (" + p->name + ") - Aborted");
@@ -392,7 +463,11 @@ void Simulator::terminateProcess(PCB* p, int tick) {
     p->turnaround = tick - p->arrivalTick;
     p->cpuId      = std::nullopt;
 
-    memory_.free(p->pid);
+    if (cfg_.memoryMode == MemoryMode::PAGED) {
+        pagedMemory_->freeProcess(p->pid);
+    } else {
+        memory_.free(p->pid);
+    }
 
     sumTurnaround_ += p->turnaround;
     sumWaiting_    += p->waitingTime;
@@ -441,6 +516,7 @@ TickSnapshot Simulator::buildSnapshot(int tick) const {
     TickSnapshot snap;
     snap.tick        = tick;
     snap.memory      = &memory_;
+    snap.pagedMemory = pagedMemory_.get();
     snap.ioManager   = &io_;
     snap.scheduler   = algoToString(cfg_.scheduler);
 

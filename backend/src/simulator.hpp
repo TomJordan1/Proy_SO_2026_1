@@ -4,6 +4,7 @@
 #include "scheduler.hpp"
 #include "dispatcher.hpp"
 #include "memory_manager.hpp"
+#include "paged_memory_manager.hpp"
 #include "io_manager.hpp"
 #include "error_manager.hpp"
 #include "json_writer.hpp"
@@ -60,6 +61,7 @@ private:
     // Sub-systems
     Scheduler        scheduler_;
     MemoryManager    memory_;
+    std::unique_ptr<PagedMemoryManager> pagedMemory_;
     IOManager        io_;
     ErrorManager     errors_;
 

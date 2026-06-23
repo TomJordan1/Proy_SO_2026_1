@@ -74,8 +74,13 @@ def _seg_color(seg: Any) -> QColor:
     if seg_type in color_map:
         return QColor(color_map[seg_type])
 
+    if seg_type == "swap_used":
+        return QColor("#8b5cf6") # Púrpura para swap
+    if seg_type == "swap_free":
+        return QColor(Colors.MEM_FREE)
+
     # Segmento del proceso desconocido — recurrir al pid color
-    return QColor(pid_color(int(pid)))
+    return QColor(pid_color(int(pid) if pid is not None else 0))
 
 
 def _seg_size(seg: Any) -> float:
@@ -343,15 +348,26 @@ class MemoryWidget(QWidget):
         self._bar = _MemoryBar()
         root.addWidget(self._bar)
 
+        # Swap Bar
+        self._swap_bar = _MemoryBar()
+        self._swap_bar.setVisible(False)
+        root.addWidget(self._swap_bar)
+
         # Stats row ────────────────────────────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(6)
 
+        self._btn_vm = QPushButton("🔍 Inspector VM")
+        self._btn_vm.setStyleSheet(f"background:{Colors.BG_ELEVATED}; border:1px solid {Colors.BORDER}; color:{Colors.ACCENT_LIGHT}; padding:4px 8px; border-radius:4px;")
+        self._btn_vm.setVisible(False)
+        self._btn_vm.clicked.connect(self._show_vm_inspector)
+        
         self._s_frag  = _stat_label("Fragmentation", "—", Colors.STATE_WAITING)
         self._s_used  = _stat_label("Used",          "—", Colors.STATE_RUNNING)
         self._s_free  = _stat_label("Free",          "—", Colors.STATE_READY)
         self._s_strat = _stat_label("Strategy",      "—", Colors.TEXT_SEC)
 
+        stats_row.addWidget(self._btn_vm)
         for w in (self._s_frag, self._s_used, self._s_free, self._s_strat):
             stats_row.addWidget(w)
         stats_row.addStretch()
@@ -378,15 +394,186 @@ class MemoryWidget(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def update(self, segments: list, stats: dict, mmu_table: dict = None) -> None:  # type: ignore[override]
+    def _show_vm_inspector(self):
+        from PySide6.QtWidgets import QDialog, QTabWidget, QTableWidgetItem
+        from PySide6.QtGui import QIcon
+
+        if not hasattr(self, "_vm_dialog") or self._vm_dialog is None:
+            self._vm_dialog = QDialog(self)
+            self._vm_dialog.setWindowTitle("Inspector de Memoria Virtual")
+            self._vm_dialog.resize(600, 400)
+            self._vm_dialog.setModal(False) # No intrusivo
+            
+            ly = QVBoxLayout(self._vm_dialog)
+            
+            self._vm_tabs = QTabWidget()
+            
+            # TLB Tab
+            self._tlb_tab = QWidget()
+            t_ly = QVBoxLayout(self._tlb_tab)
+            self._tlb_lbl = QLabel()
+            t_ly.addWidget(self._tlb_lbl)
+            self._tlb_table = QTableWidget(0, 3)
+            self._tlb_table.setHorizontalHeaderLabels(["PID", "VPN", "Frame"])
+            t_ly.addWidget(self._tlb_table)
+            self._vm_tabs.addTab(self._tlb_tab, "TLB")
+            
+            # Page Table Tab
+            self._pt_tab = QWidget()
+            p_ly = QVBoxLayout(self._pt_tab)
+            
+            # Layout horizontal para controles
+            h_ly = QHBoxLayout()
+            h_ly.addWidget(QLabel("Proceso:"))
+            self._pt_combo = __import__('PySide6.QtWidgets', fromlist=['QComboBox']).QComboBox()
+            h_ly.addWidget(self._pt_combo)
+            h_ly.addStretch()
+            p_ly.addLayout(h_ly)
+            
+            self._pt_table = QTableWidget(0, 5)
+            self._pt_table.setHorizontalHeaderLabels(["VPN", "Frame", "Valid (V)", "Ref (R)", "Mod (M)"])
+            p_ly.addWidget(self._pt_table)
+            self._vm_tabs.addTab(self._pt_tab, "Page Tables")
+            
+            # Swap Tab
+            self._swap_tab = QWidget()
+            s_ly = QVBoxLayout(self._swap_tab)
+            self._swap_lbl = QLabel()
+            s_ly.addWidget(self._swap_lbl)
+            self._vm_tabs.addTab(self._swap_tab, "Swap")
+            
+            ly.addWidget(self._vm_tabs)
+
+        # Actualizar datos del diálogo
+        d = self._paged_data
+        if not d: return
+        
+        tlb = d.get("tlb", {})
+        self._tlb_lbl.setText(f"Hits: {tlb.get('hits', 0)} | Misses: {tlb.get('misses', 0)}")
+        entries = tlb.get("entries", [])
+        self._tlb_table.setRowCount(len(entries))
+        for i, e in enumerate(entries):
+            self._tlb_table.setItem(i, 0, QTableWidgetItem(str(e.get("pid"))))
+            self._tlb_table.setItem(i, 1, QTableWidgetItem(str(e.get("vpn"))))
+            self._tlb_table.setItem(i, 2, QTableWidgetItem(str(e.get("frame_number"))))
+            
+        ptables = d.get("page_tables", [])
+        self._pt_data = {}
+        for p in ptables:
+            pid = p.get("pid")
+            self._pt_data.setdefault(pid, []).append(p)
+            
+        # Desconectar para no llamar 2 veces
+        try: self._pt_combo.currentIndexChanged.disconnect()
+        except: pass
+        
+        self._pt_combo.clear()
+        if self._pt_data:
+            for pid in sorted(self._pt_data.keys()):
+                self._pt_combo.addItem(f"Process {pid}", pid)
+            self._pt_combo.currentIndexChanged.connect(self._on_pt_combo_change)
+            self._on_pt_combo_change(self._pt_combo.currentIndex())
+        else:
+            self._pt_table.setRowCount(0)
+            
+        swap = d.get("swap", {})
+        max_p = swap.get("max_pages", 0)
+        used_p = swap.get("used_pages", 0)
+        self._swap_lbl.setText(f"Tamaño Total: {max_p * 4 / 1024.0:.1f} MB ({max_p} páginas)\nUsado: {used_p * 4 / 1024.0:.1f} MB ({used_p} páginas)\nLibre: {(max_p - used_p) * 4 / 1024.0:.1f} MB")
+
+        if not self._vm_dialog.isVisible():
+            self._vm_dialog.show()
+
+    def _on_pt_combo_change(self, idx: int):
+        from PySide6.QtWidgets import QTableWidgetItem
+        if idx < 0:
+            self._pt_table.setRowCount(0)
+            return
+        pid = self._pt_combo.itemData(idx)
+        entries = self._pt_data.get(pid, [])
+        self._pt_table.setRowCount(len(entries))
+        for i, p in enumerate(entries):
+            self._pt_table.setItem(i, 0, QTableWidgetItem(str(p.get("vpn"))))
+            self._pt_table.setItem(i, 1, QTableWidgetItem(str(p.get("frame"))))
+            self._pt_table.setItem(i, 2, QTableWidgetItem("1" if p.get("valid") else "0"))
+            self._pt_table.setItem(i, 3, QTableWidgetItem("1" if p.get("referenced") else "0"))
+            self._pt_table.setItem(i, 4, QTableWidgetItem("1" if p.get("modified") else "0"))
+
+    def update(self, segments: list | dict, stats: dict, mmu_table: dict = None) -> None:  # type: ignore[override]
         """
         Refresh the memory visualizer.
 
         :param segments: list of segment dicts.
         :param stats:    stats dict (see class docstring).
         """
+        if isinstance(segments, dict) and segments.get("type") == "PAGED":
+            self._paged_data = segments
+            self._btn_vm.setVisible(True)
+            self._swap_bar.setVisible(True)
+            self._mmu.setVisible(False)
+            
+            frames = segments.get("frames", [])
+            ram_segments = []
+            used_pages = 0
+            os_pages = 0
+            for f in frames:
+                is_free = f.get("is_free", True)
+                seg_type = str(f.get("segment_type", "FREE")).lower()
+                pid_val = f.get("pid")
+                vpn = f.get("vpn", 0)
+                idx = f.get("index", 0)
+                
+                if seg_type == "os":
+                    os_pages += 1
+                elif not is_free and pid_val is not None:
+                    used_pages += 1
+                
+                if is_free:
+                    label = f"Frame {idx} [libre]"
+                elif seg_type == "os":
+                    label = f"Frame {idx} [OS]"
+                else:
+                    label = f"F{idx} (P{pid_val} VPN {vpn})"
+                
+                seg = {
+                    "is_free": is_free,
+                    "pid": pid_val,
+                    "segment_type": seg_type,
+                    "size": 4.0 / 1024.0,  # 4KB por frame
+                    "label": label
+                }
+                ram_segments.append(seg)
+                
+            total_ram_mb = len(frames) * 4.0 / 1024.0
+            self._bar.set_segments(ram_segments, total_ram_mb)
+            
+            swap = segments.get("swap", {})
+            max_swap = swap.get("max_pages", 0)
+            used_swap = swap.get("used_pages", 0)
+            free_swap = max_swap - used_swap
+            
+            swap_segments = [
+                {"is_free": False, "segment_type": "swap_used", "size": used_swap * 4.0 / 1024.0, "label": f"Swap Used ({used_swap} p)"},
+                {"is_free": True,  "segment_type": "swap_free", "size": free_swap * 4.0 / 1024.0, "label": f"Swap Free ({free_swap} p)"}
+            ]
+            self._swap_bar.set_segments(swap_segments, max_swap * 4.0 / 1024.0)
+            
+            free_pages = len(frames) - os_pages - used_pages
+            self._set_val(self._s_frag, "0.0%")
+            self._set_val(self._s_used, f"{used_pages * 4.0 / 1024.0:.1f} MB")
+            self._set_val(self._s_free, f"{free_pages * 4.0 / 1024.0:.1f} MB")
+            self._set_val(self._s_strat, f"VM Paginada ({os_pages * 4}KB OS)")
+            
+            if hasattr(self, "_vm_dialog") and self._vm_dialog and self._vm_dialog.isVisible():
+                self._show_vm_inspector()
+                
+            return
+
+        self._btn_vm.setVisible(False)
+        self._swap_bar.setVisible(False)
+
         total_mb = float(stats.get("total_mb") or 1)
-        self._bar.set_segments(segments, total_mb)
+        self._bar.set_segments(segments if isinstance(segments, list) else [], total_mb)
 
         # Stats cards
         used  = stats.get("used_mb", 0)

@@ -167,6 +167,77 @@ json JsonWriter::serializeMemory(const MemoryManager& mem) const {
     return j;
 }
 
+// ─── serializePagedMemory ────────────────────────────────────────────────────
+json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
+    json j;
+    
+    // Frames
+    json framesArr = json::array();
+    const auto& ft = mem.getFrameTable();
+    for (const auto& f : ft.getFrames()) {
+        json fObj;
+        fObj["index"] = f.index;
+        fObj["is_free"] = f.isFree;
+        if (!f.isFree) {
+            fObj["pid"] = f.pid.has_value() ? json(f.pid.value()) : json(nullptr);
+            fObj["vpn"] = f.vpn;
+            fObj["segment_type"] = segmentTypeToString(f.segmentType);
+            fObj["referenced"] = f.referenced;
+            fObj["modified"] = f.modified;
+        } else {
+            fObj["pid"] = nullptr;
+            fObj["segment_type"] = "FREE";
+        }
+        framesArr.push_back(fObj);
+    }
+    j["frames"] = framesArr;
+    
+    // Swap Stats
+    const auto& sm = mem.getSwapManager();
+    j["swap"] = {
+        {"max_pages", sm.getMaxPages()},
+        {"used_pages", sm.getUsedPages()}
+    };
+    
+    // TLB
+    json tlbArr = json::array();
+    // Non-const cast to get TLB for metrics output, or just use const if added
+    auto tlb = const_cast<PagedMemoryManager&>(mem).getTLB();
+    for (const auto& entry : tlb.getEntries()) {
+        json tObj;
+        tObj["pid"] = entry.pid;
+        tObj["vpn"] = entry.vpn;
+        tObj["frame_number"] = entry.frameNumber;
+        tlbArr.push_back(tObj);
+    }
+    j["tlb"] = {
+        {"hits", tlb.getHits()},
+        {"misses", tlb.getMisses()},
+        {"entries", tlbArr}
+    };
+    
+    // Page Tables
+    json ptArr = json::array();
+    // Reconstruct valid pages per process by checking frames
+    // (A more complete approach would use the PageTable itself, but FrameTable has R/M bits)
+    // We will just report present pages from FrameTable
+    for (const auto& f : ft.getFrames()) {
+        if (!f.isFree && f.pid.has_value()) {
+            json pObj;
+            pObj["pid"] = f.pid.value();
+            pObj["vpn"] = f.vpn;
+            pObj["frame"] = f.index;
+            pObj["referenced"] = f.referenced;
+            pObj["modified"] = f.modified;
+            pObj["valid"] = true; // since it's in memory
+            ptArr.push_back(pObj);
+        }
+    }
+    j["page_tables"] = ptArr;
+    
+    return j;
+}
+
 // ─── serializeIODevices ──────────────────────────────────────────────────────
 json JsonWriter::serializeIODevices(const IOManager& io) const {
     json arr = json::array();
@@ -227,8 +298,12 @@ void JsonWriter::recordTick(const TickSnapshot& snap) {
     tickObj["process_table"] = serializeProcessTable(snap.processTable);
 
     // Memory
-    if (snap.memory) {
+    if (snap.pagedMemory) {
+        tickObj["memory"] = serializePagedMemory(*snap.pagedMemory);
+        tickObj["memory"]["type"] = "PAGED";
+    } else if (snap.memory) {
         tickObj["memory"] = serializeMemory(*snap.memory);
+        tickObj["memory"]["type"] = "CONTIGUOUS";
     }
 
     // IO devices

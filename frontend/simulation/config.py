@@ -65,18 +65,25 @@ class HardwareConfig:
     mmu_enabled: bool = True
     """
     Si la MMU abstracta está activa.
-    Cuando True: muestra traducción lógica→física en la UI.
-    Extensibilidad: en versión futura, activar 'virtual_memory_enabled'
-    cambiará la MMU de SegmentMMU a PagedMMU sin modificar el engine.
     """
 
-    virtual_memory_enabled: bool = False
-    """
-    RESERVADO — Paginación virtual (no implementada aún).
-    Preparado para integración futura. Cuando se active:
-      - MemoryManager usará PagedMemoryManager en lugar de SegmentMMU
-      - La UI mostrará tabla de páginas y TLB
-    """
+    memory_mode: str = "CONTIGUOUS"
+    """Modo de memoria: 'CONTIGUOUS' o 'PAGED'."""
+
+    page_table_type: str = "SINGLE_LEVEL"
+    """Tipo de tabla de páginas: SINGLE_LEVEL, TWO_LEVEL, INVERTED, HASHED."""
+
+    replacement_algorithm: str = "NRU"
+    """Algoritmo de reemplazo: NRU, FIFO, SECOND_CHANCE, CLOCK, LRU, NFU, AGING, WORKING_SET, WSCLOCK."""
+
+    swap_device_type: str = "HDD"
+    """Tipo de disco de Swap: HDD o SSD."""
+
+    swap_size_mb: int = 2048
+    """Tamaño del archivo de Swap en MB."""
+
+    tlb_size: int = 16
+    """Cantidad de entradas en la TLB."""
 
     # ── Dispositivos I/O ──────────────────────────────────────────────────────
     keyboard_latency: int = 7
