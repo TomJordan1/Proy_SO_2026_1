@@ -93,6 +93,7 @@ private:
     // ── Helpers ──────────────────────────────────────────────────────────────
     PCB*   findProcess(int pid);
     void   terminateProcess(PCB* p, int tick);
+    void   failProcess(PCB* p, int tick, ErrorCode err);
     bool   allDone() const;
     int    pidCounter_ = 0;
 

@@ -329,11 +329,7 @@ void Simulator::executeOneCPUTick(int tick) {
                 int penalty = pagedMemory_->accessPage(p->pid, vpn, SegmentType::DATA, tick, false);
                 if (penalty == -1) {
                     // Segfault / OOM
-                    p->state = ProcessState::ERROR;
-                    p->errorCode = ErrorCode::SEGFAULT;
-                    p->finishTick = tick;
-                    pagedMemory_->freeProcess(p->pid);
-                    completedCount_++;
+                    failProcess(p, tick, ErrorCode::SEGFAULT);
                     core.current = nullptr;
                     log("[T=" + std::to_string(tick) + "] ERROR P" + std::to_string(p->pid) + " (PAGE_FAULT OOM)");
                     pageFaultOccurred = true;
@@ -421,12 +417,7 @@ void Simulator::checkErrors(int tick) {
             log("[T=" + std::to_string(tick) + "] ERROR P" +
                 std::to_string(p->pid) + " (" + p->name + ") → " +
                 errorCodeToString(p->errorCode));
-            if (cfg_.memoryMode == MemoryMode::PAGED) {
-                pagedMemory_->freeProcess(p->pid);
-            } else {
-                memory_.free(p->pid);
-            }
-            ++completedCount_;
+            failProcess(p, tick, p->errorCode);
             core.current = nullptr;
         }
     }
@@ -497,6 +488,12 @@ void Simulator::processEvents(int tick) {
 // ─── applyAging ──────────────────────────────────────────────────────────────
 void Simulator::applyAging(int tick) {
     scheduler_.applyAging(readyQueues_, tick, cfg_.agingInterval);
+}
+
+void Simulator::failProcess(PCB* p, int tick, ErrorCode err) {
+    p->errorCode = err;
+    terminateProcess(p, tick);
+    p->state = ProcessState::ERROR;
 }
 
 // ─── terminateProcess ────────────────────────────────────────────────────────
