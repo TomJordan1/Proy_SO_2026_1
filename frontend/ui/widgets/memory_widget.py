@@ -93,9 +93,11 @@ def _seg_size(seg: Any) -> float:
     if isinstance(seg, dict):
         if "size_mb" in seg:
             return float(seg["size_mb"])
-        return float(seg.get("size") or seg.get("size_kb") or 0) / 1024.0
+        if "size_kb" in seg:
+            return float(seg["size_kb"]) / 1024.0
+        return float(seg.get("size", 0))
     val = float(getattr(seg, "size", 0))
-    return val / 1024.0 if val > 0 else 0.0
+    return val
 
 def _seg_label(seg: Any) -> str:
     if isinstance(seg, dict):
