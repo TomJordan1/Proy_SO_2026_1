@@ -771,7 +771,7 @@ class ConfigDialog(QDialog):
 
                     procs.append({
                         'name': name,
-                        'burst_time': random.randint(10, 80),
+                        'burst_time': random.randint(2, 15),
                         'priority': prio,
                         'memory_size': rss_mb,
                         'process_type': ptype,
