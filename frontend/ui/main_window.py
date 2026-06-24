@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
             self.clock.set_speed(speeds[idx])
         else:
             val, ok = QInputDialog.getInt(self, "Velocidad Personalizada", "Milisegundos por tick (ms/t):", 
-                                          self.clock._speed_ms, 10, 10000, 10)
+                                          self.clock._speed_ms, 1, 10000, 1)
             if ok:
                 self.clock.set_speed(val)
             else:
