@@ -214,6 +214,25 @@ class _MemoryBar(QWidget):
             painter.setBrush(color)
             painter.drawRect(seg_x, 0, seg_w, h)
 
+        # Draw Addressing Grid (Rejilla de direccionamiento cada 16MB)
+        if self._total_mb > 0:
+            grid_color = QColor(Colors.TEXT_MUTED)
+            grid_color.setAlpha(100)
+            painter.setPen(QPen(grid_color, 1, Qt.PenStyle.DashLine))
+            page_size = 16
+            num_pages = int(self._total_mb // page_size)
+            scale = w / self._total_mb
+            for i in range(1, num_pages + 1):
+                mb = i * page_size
+                if mb >= self._total_mb:
+                    continue
+                x = int(mb * scale)
+                painter.drawLine(x, 0, x, h)
+                # Label
+                painter.setPen(QColor(Colors.TEXT_MUTED))
+                painter.drawText(x + 2, h - 2, f"{mb}")
+                painter.setPen(QPen(grid_color, 1, Qt.PenStyle.DashLine))
+
         # Superposición de bordes
         painter.setPen(QPen(QColor(Colors.BORDER), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -237,6 +256,71 @@ class _MemoryBar(QWidget):
             painter.setPen(QColor(Colors.TEXT_PRIMARY))
             painter.drawText(tx + 8, ty + th - (th - fm.height()) // 2 - 2, text)
 
+        painter.end()
+
+
+class _SwapPieChart(QWidget):
+    """QPainter canvas that draws a pie chart for Swap usage."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.used_mb = 0.0
+        self.free_mb = 0.0
+        self.total_mb = 0.0
+        self.setMinimumHeight(120)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setFixedHeight(120)
+
+    def set_values(self, used_mb: float, total_mb: float):
+        self.used_mb = used_mb
+        self.total_mb = total_mb
+        self.free_mb = max(0.0, total_mb - used_mb)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        w = self.width()
+        h = self.height()
+        
+        # Pie Chart limits
+        size = min(w // 2, h) - 20
+        rect_x = 20
+        rect_y = (h - size) // 2
+        
+        if self.total_mb > 0:
+            angle = int((self.used_mb / self.total_mb) * 360 * 16)
+        else:
+            angle = 0
+            
+        # Draw Used
+        painter.setBrush(QColor(Colors.ACCENT_DANGER)) 
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPie(rect_x, rect_y, size, size, 90 * 16, -angle)
+        
+        # Draw Free
+        painter.setBrush(QColor(Colors.BORDER)) 
+        painter.drawPie(rect_x, rect_y, size, size, 90 * 16 - angle, -(360 * 16 - angle))
+        
+        # Draw border
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QColor(Colors.BG_BASE))
+        painter.drawEllipse(rect_x, rect_y, size, size)
+        
+        # Legend
+        text_x = rect_x + size + 40
+        painter.setPen(QColor(Colors.TEXT_PRIMARY))
+        
+        painter.drawText(text_x, 35, f"Almacenamiento Swap: {self.total_mb:.1f} MB")
+        
+        painter.setBrush(QColor(Colors.ACCENT_DANGER))
+        painter.drawRect(text_x, 55, 12, 12)
+        painter.drawText(text_x + 20, 66, f"Usado: {self.used_mb:.1f} MB")
+        
+        painter.setBrush(QColor(Colors.BORDER))
+        painter.drawRect(text_x, 80, 12, 12)
+        painter.drawText(text_x + 20, 91, f"Libre: {self.free_mb:.1f} MB")
+        
         painter.end()
 
 
@@ -367,13 +451,12 @@ class MemoryWidget(QWidget):
         hdr_layout.addStretch()
         
         root.addLayout(hdr_layout)
-
         # Bar
         self._bar = _MemoryBar()
         root.addWidget(self._bar)
 
-        # Swap Bar
-        self._swap_bar = _MemoryBar()
+        # Swap
+        self._swap_bar = _SwapPieChart()
         self._swap_bar.setVisible(False)
         root.addWidget(self._swap_bar)
 
@@ -401,6 +484,22 @@ class MemoryWidget(QWidget):
         self._mmu = _MMUPanel()
         self._mmu.setVisible(False)
         root.addWidget(self._mmu)
+
+        # MMU Log panel
+        self._mmu_log_group = QGroupBox("Bitácora de Traducción y Fallos de Página")
+        self._mmu_log_group.setStyleSheet(f"color:{Colors.TEXT_PRIMARY}; font-weight:bold; border: 1px solid {Colors.BORDER}; border-radius: 4px; margin-top: 6px;")
+        log_layout = QVBoxLayout(self._mmu_log_group)
+        self._mmu_log_area = QLabel("Esperando actividad de MMU...")
+        self._mmu_log_area.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._mmu_log_area.setStyleSheet(f"padding: 5px; font-family: Consolas; font-size: 11px; font-weight: normal; border: none;")
+        self._mmu_log_area.setWordWrap(True)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self._mmu_log_area)
+        scroll.setStyleSheet("border: none;")
+        log_layout.addWidget(scroll)
+        self._mmu_log_group.setVisible(False)
+        root.addWidget(self._mmu_log_group, stretch=1)
 
         root.addStretch()
 
@@ -531,7 +630,7 @@ class MemoryWidget(QWidget):
             self._pt_table.setItem(i, 3, QTableWidgetItem("1" if p.get("referenced") else "0"))
             self._pt_table.setItem(i, 4, QTableWidgetItem("1" if p.get("modified") else "0"))
 
-    def update(self, segments: list | dict, stats: dict, mmu_table: dict = None) -> None:  # type: ignore[override]
+    def update(self, segments: list | dict, stats: dict, mmu_table: dict = None, logs: list = None) -> None:  # type: ignore[override]
         """
         Refresh the memory visualizer.
 
@@ -595,13 +694,8 @@ class MemoryWidget(QWidget):
             swap = segments.get("swap", {})
             max_swap = swap.get("max_pages", 0)
             used_swap = swap.get("used_pages", 0)
-            free_swap = max_swap - used_swap
             
-            swap_segments = [
-                {"is_free": False, "segment_type": "swap_used", "size": used_swap * 4.0 / 1024.0, "label": f"Swap Used ({used_swap} p)"},
-                {"is_free": True,  "segment_type": "swap_free", "size": free_swap * 4.0 / 1024.0, "label": f"Swap Free ({free_swap} p)"}
-            ]
-            self._swap_bar.set_segments(swap_segments, max_swap * 4.0 / 1024.0)
+            self._swap_bar.set_values(used_swap * 4.0 / 1024.0, max_swap * 4.0 / 1024.0)
             
             # Dinámicamente refrescar el inspector si está abierto
             if hasattr(self, "_vm_dialog") and self._vm_dialog.isVisible():
@@ -644,5 +738,15 @@ class MemoryWidget(QWidget):
         if mmu:
             self._mmu.setVisible(True)
             self._mmu.refresh(mmu)
+            self._mmu_log_group.setVisible(True)
+            if logs:
+                # Filtrar logs de paginación
+                mmu_logs = [log["message"] for log in logs if "PAGE_FAULT" in log["message"] or "SWAP" in log["message"] or "Evict" in log["message"]]
+                if mmu_logs:
+                    text = "\n".join(mmu_logs[-15:])
+                    self._mmu_log_area.setText(text)
+                else:
+                    self._mmu_log_area.setText("Sin actividad reciente de MMU.")
         else:
             self._mmu.setVisible(False)
+            self._mmu_log_group.setVisible(False)

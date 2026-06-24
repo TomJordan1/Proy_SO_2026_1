@@ -885,7 +885,8 @@ class MainWindow(QMainWindow):
             if "allocationStrategy" in mem_cfg:
                 mem_stats["strategy"] = mem_cfg["allocationStrategy"]
                 
-        self.memory_widget.update(mem_segments, mem_stats, mmu_dict)
+        current_logs = self._global_logs[:log_count]
+        self.memory_widget.update(mem_segments, mem_stats, mmu_dict, current_logs)
 
 
         # ── Queues ───────────────────────────────────────────────────────────

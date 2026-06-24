@@ -290,9 +290,9 @@ class ConfigDialog(QDialog):
         
         g_paged.addWidget(_lbl("Tamaño Swap (MB):"), 3, 0)
         self.spin_swap = QSpinBox()
-        self.spin_swap.setRange(128, 8192)
-        self.spin_swap.setValue(2048)
-        self.spin_swap.setSingleStep(128)
+        self.spin_swap.setRange(16, 8192)
+        self.spin_swap.setValue(64)
+        self.spin_swap.setSingleStep(16)
         g_paged.addWidget(self.spin_swap, 3, 1)
         
         g_paged.addWidget(_lbl("Entradas TLB:"), 4, 0)
@@ -635,7 +635,7 @@ class ConfigDialog(QDialog):
         self.combo_pt.setCurrentIndex(0)
         self.combo_repl.setCurrentIndex(0)
         self.combo_swap_type.setCurrentIndex(0)
-        self.spin_swap.setValue(2048)
+        self.spin_swap.setValue(64)
         self.spin_tlb.setValue(16)
         for attr, spin in self._dev_spins.items():
             defaults = {
