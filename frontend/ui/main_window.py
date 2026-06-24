@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QSpinBox,
     QSplitter, QFrame, QToolBar, QDialog, QMessageBox,
-    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy
+    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy, QSlider
 )
 from PySide6.QtGui import QAction
 
@@ -130,6 +130,15 @@ class MainWindow(QMainWindow):
             self._static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
             self._playback_data = data.get("ticks", [])
             self._infer_frontend_data(self._playback_data)
+            
+            if hasattr(self, "slider_playback"):
+                if self._playback_data:
+                    self.slider_playback.setEnabled(True)
+                    self.slider_playback.setRange(0, len(self._playback_data) - 1)
+                    self.slider_playback.setValue(0)
+                else:
+                    self.slider_playback.setEnabled(False)
+                    
         except Exception as e:
             print(f"Error cargando JSON inicial: {e}")
             self._playback_data = []
@@ -160,7 +169,7 @@ class MainWindow(QMainWindow):
         self.sb_frag    = QLabel("  Frag: 0%")
         self.sb_ctx     = QLabel("  CTX: 0")
 
-        corner_widget = QWidget()
+        corner_widget = QWidget(menu)
         corner_layout = QHBoxLayout(corner_widget)
         corner_layout.setContentsMargins(0, 0, 15, 0)
         
@@ -220,6 +229,15 @@ class MainWindow(QMainWindow):
         self.btn_reset.setFixedHeight(30)
         self.btn_reset.clicked.connect(self._on_reset)
         tb.addWidget(self.btn_reset)
+
+        tb.addWidget(_sep())
+        
+        self.slider_playback = QSlider(Qt.Orientation.Horizontal)
+        self.slider_playback.setFixedWidth(200)
+        self.slider_playback.setEnabled(False)
+        self.slider_playback.setToolTip("Saltar a un tick específico de la simulación")
+        self.slider_playback.valueChanged.connect(self._on_slider_jump)
+        tb.addWidget(self.slider_playback)
 
         tb.addWidget(_sep())
         
@@ -804,6 +822,11 @@ class MainWindow(QMainWindow):
             self._playback_mode = True
             self._playback_tick = 0
             
+            if hasattr(self, "slider_playback"):
+                self.slider_playback.setEnabled(True)
+                self.slider_playback.setRange(0, len(self._playback_data) - 1)
+                self.slider_playback.setValue(0)
+            
             # Deshabilitar controles del motor
             self.btn_new.setEnabled(False)
             self.combo_sched.setEnabled(False)
@@ -826,9 +849,20 @@ class MainWindow(QMainWindow):
             if 0 <= self._playback_tick < len(self._playback_data):
                 snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
                 self._refresh(snap)
+                
+                self.slider_playback.blockSignals(True)
+                self.slider_playback.setValue(self._playback_tick)
+                self.slider_playback.blockSignals(False)
+                
                 self._playback_tick += 1
             else:
                 self._on_pause()
+
+    def _on_slider_jump(self, value: int):
+        if self._playback_mode and self._playback_data:
+            self._playback_tick = value
+            snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
+            self._refresh(snap)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Refresco de UI
