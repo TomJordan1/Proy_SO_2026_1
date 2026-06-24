@@ -153,6 +153,25 @@ class MainWindow(QMainWindow):
         self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
         self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
 
+        # ── Métricas en la parte superior derecha (Corner Widget) ──
+        self.sb_tick    = QLabel("  T=0")
+        self.sb_procs   = QLabel("  Procesos: 0")
+        self.sb_mem     = QLabel("  RAM: 0%")
+        self.sb_frag    = QLabel("  Frag: 0%")
+        self.sb_ctx     = QLabel("  CTX: 0")
+
+        corner_widget = QWidget()
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(0, 0, 15, 0)
+        
+        for w in [self.sb_tick, QLabel(" | "),
+                  self.sb_procs, QLabel(" | "), self.sb_mem, QLabel(" | "),
+                  self.sb_frag, QLabel(" | "), self.sb_ctx]:
+            w.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; font-weight: bold;")
+            corner_layout.addWidget(w)
+            
+        menu.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
+
     def _add_toggle_action(self, menu, name, widget):
         action = QAction(name, self)
         action.setCheckable(True)
@@ -263,18 +282,6 @@ class MainWindow(QMainWindow):
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         tb.addWidget(spacer)
-
-        # ── Métricas en la parte superior derecha ──
-        self.sb_tick    = QLabel("  T=0")
-        self.sb_procs   = QLabel("  Procesos: 0")
-        self.sb_mem     = QLabel("  RAM: 0%")
-        self.sb_frag    = QLabel("  Frag: 0%")
-        self.sb_ctx     = QLabel("  CTX: 0")
-
-        for w in [self.sb_tick, QLabel(" | "),
-                  self.sb_procs, QLabel(" | "), self.sb_mem, QLabel(" | "),
-                  self.sb_frag, QLabel(" | "), self.sb_ctx]:
-            tb.addWidget(w)
 
     def _build_central(self):
         scroll_area = QScrollArea()

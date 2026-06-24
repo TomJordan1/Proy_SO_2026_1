@@ -44,7 +44,7 @@ class Colors:
     MEM_DATA  = "#0891b2"
     MEM_HEAP  = "#059669"
     MEM_STACK = "#d97706"
-    MEM_FREE  = "#1c2128"
+    MEM_FREE  = "#1a2e23"
 
     # Borders
     BORDER    = "#30363d"
