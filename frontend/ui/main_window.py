@@ -151,6 +151,11 @@ class MainWindow(QMainWindow):
     def _build_menu(self):
         menu = self.menuBar()
         menu.setStyleSheet(f"QMenuBar {{ background: {Colors.BG_BASE}; color: {Colors.TEXT_PRIMARY}; border-bottom: 1px solid {Colors.BORDER}; }} QMenuBar::item:selected {{ background: {Colors.BG_ELEVATED}; }} QMenu {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_PRIMARY}; border: 1px solid {Colors.BORDER}; }}")
+        
+        # Acción directa en el menú
+        action_load = menu.addAction("📂 Cargar JSON")
+        action_load.triggered.connect(self._on_load_json)
+        
         view_menu = menu.addMenu("Ver")
 
         self._add_toggle_action(view_menu, "Cores de CPU", self.cpu_widget)
@@ -213,12 +218,14 @@ class MainWindow(QMainWindow):
         # Controles de simulación
         self.btn_start = QPushButton("▶  Iniciar")
         self.btn_start.setObjectName("btn_start")
+        self.btn_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_start.setFixedHeight(30)
         self.btn_start.clicked.connect(self._on_start)
         tb.addWidget(self.btn_start)
 
         self.btn_pause = QPushButton("⏸  Pausar")
         self.btn_pause.setObjectName("btn_pause")
+        self.btn_pause.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_pause.setFixedHeight(30)
         self.btn_pause.setEnabled(False)
         self.btn_pause.clicked.connect(self._on_pause)
@@ -226,6 +233,7 @@ class MainWindow(QMainWindow):
 
         self.btn_reset = QPushButton("↺  Reset")
         self.btn_reset.setObjectName("btn_reset")
+        self.btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reset.setFixedHeight(30)
         self.btn_reset.clicked.connect(self._on_reset)
         tb.addWidget(self.btn_reset)
@@ -242,16 +250,10 @@ class MainWindow(QMainWindow):
         tb.addWidget(self.spin_jump)
 
         tb.addWidget(_sep())
-        
-        self.btn_load_json = QPushButton("📂  Cargar JSON")
-        self.btn_load_json.setFixedHeight(30)
-        self.btn_load_json.clicked.connect(self._on_load_json)
-        tb.addWidget(self.btn_load_json)
-
-        tb.addWidget(_sep())
 
         # Nuevo proceso
         self.btn_new = QPushButton("＋  Añadir Proceso en Caliente")
+        self.btn_new.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_new.setFixedHeight(30)
         self.btn_new.clicked.connect(self._on_new_process)
         tb.addWidget(self.btn_new)
