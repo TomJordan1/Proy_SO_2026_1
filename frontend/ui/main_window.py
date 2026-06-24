@@ -943,7 +943,7 @@ class MainWindow(QMainWindow):
             mem_cfg = hw.get("memory", {})
             if not mem_cfg.get("mmuEnabled", True):
                 mmu_dict = {}  # Ocultar MMU si se deshabilitó
-            if "totalMB" in mem_cfg:
+            if "totalMB" in mem_cfg and "total_mb" not in mem_stats:
                 mem_stats["total_mb"] = mem_cfg["totalMB"]
             if "allocationStrategy" in mem_cfg:
                 mem_stats["strategy"] = mem_cfg["allocationStrategy"]
