@@ -832,6 +832,9 @@ class MainWindow(QMainWindow):
         if snap is None:
             return
 
+        raw_frame = snap.get("_raw_frame", snap)
+        log_count = raw_frame.get("_log_count", raw_frame.get("log_count", len(self._global_logs)))
+
         # ── CPU Cores ────────────────────────────────────────────────────────
         self.cpu_widget.update(snap["cores"])
 
