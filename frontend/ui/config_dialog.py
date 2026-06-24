@@ -560,7 +560,7 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        os_reserved = min(64, max(8, val // 4))
+        os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
         avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
@@ -572,38 +572,43 @@ class ConfigDialog(QDialog):
 
     # Definiciones de procesos manuales predeterminadas de 20
     _DEFAULT_PROCS = [
-        ("Sistema",    10, 0, 48,  "SYSTEM"),
-        ("Kernel",      8, 0, 32,  "SYSTEM"),
-        ("svchost",    15, 1, 64,  "SYSTEM"),
-        ("Explorador", 30, 3, 150, "INTERACTIVE"),
-        ("Navegador",  45, 2, 450, "INTERACTIVE"),
-        ("Editor",     25, 3, 200, "CPU_BOUND"),
-        ("Compilador", 80, 4, 350, "CPU_BOUND"),
-        ("Database",   20, 2, 500, "IO_BOUND"),
-        ("Servidor",   60, 2, 250, "IO_BOUND"),
-        ("Logger",     12, 5, 24,  "IO_BOUND"),
-        ("Antivirus",  40, 4, 180, "CPU_BOUND"),
-        ("Backup",     90, 6, 120, "IO_BOUND"),
-        ("Player",     35, 3, 280, "INTERACTIVE"),
-        ("Terminal",   18, 2, 45,  "INTERACTIVE"),
-        ("Updater",    50, 7, 85,  "IO_BOUND"),
-        ("Scheduler",  10, 1, 16,  "SYSTEM"),
-        ("NetworkMgr", 22, 2, 56,  "IO_BOUND"),
-        ("UIServer",   28, 3, 110, "INTERACTIVE"),
-        ("CryptoSvc",  55, 4, 140, "CPU_BOUND"),
-        ("MemMgr",      8, 1, 24,  "SYSTEM"),
+        # name, burst, prio, mem_contig, mem_paged, type
+        ("Sistema",    10, 0, 48,  2, "SYSTEM"),
+        ("Kernel",      8, 0, 32,  1, "SYSTEM"),
+        ("svchost",    15, 1, 64,  2, "SYSTEM"),
+        ("Explorador", 30, 3, 150, 4, "INTERACTIVE"),
+        ("Navegador",  45, 2, 450, 6, "INTERACTIVE"),
+        ("Editor",     25, 3, 200, 3, "CPU_BOUND"),
+        ("Compilador", 80, 4, 350, 5, "CPU_BOUND"),
+        ("Database",   20, 2, 500, 6, "IO_BOUND"),
+        ("Servidor",   60, 2, 250, 4, "IO_BOUND"),
+        ("Logger",     12, 5, 24,  1, "IO_BOUND"),
+        ("Antivirus",  40, 4, 180, 3, "CPU_BOUND"),
+        ("Backup",     90, 6, 120, 2, "IO_BOUND"),
+        ("Player",     35, 3, 280, 4, "INTERACTIVE"),
+        ("Terminal",   18, 2, 45,  1, "INTERACTIVE"),
+        ("Updater",    50, 7, 85,  2, "IO_BOUND"),
+        ("Scheduler",  10, 1, 16,  1, "SYSTEM"),
+        ("NetworkMgr", 22, 2, 56,  2, "IO_BOUND"),
+        ("UIServer",   28, 3, 110, 3, "INTERACTIVE"),
+        ("CryptoSvc",  55, 4, 140, 3, "CPU_BOUND"),
+        ("MemMgr",      8, 1, 24,  1, "SYSTEM"),
     ]
 
     def _populate_default_manual_rows(self):
         """Pre-populate the manual list with 20 representative default processes."""
         sys_mem = self.spin_mem.value()
         cap = max(4, sys_mem // 4)
-        for name, burst, prio, mem, ptype in self._DEFAULT_PROCS:
+        is_paged = self.chk_paged.isChecked()
+        for name, burst, prio, mem_contig, mem_paged, ptype in self._DEFAULT_PROCS:
             row = ManualProcessRow(len(self._manual_rows) + 1)
             row.name_edit.setText(name)
             row.burst.setValue(burst)
             row.priority.setValue(prio)
+            
+            mem = mem_paged if is_paged else mem_contig
             row.memory.setValue(min(cap, mem))
+            
             row.ptype.setCurrentText(ptype)
             self._manual_rows.append(row)
             self.rows_layout.insertWidget(self.rows_layout.count(), row)
@@ -844,7 +849,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         min(64, max(8, config.total_memory_mb // 4)),
+                    "osReservedMB":         max(8, config.total_memory_mb // 4),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
