@@ -560,8 +560,7 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        # os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
-        os_reserved = 64
+        os_reserved = min(64, max(8, val // 4))
         avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
@@ -845,7 +844,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         max(8, config.total_memory_mb // 4),
+                    "osReservedMB":         min(64, max(8, config.total_memory_mb // 4)),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
