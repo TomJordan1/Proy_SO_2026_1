@@ -268,55 +268,124 @@ json JsonWriter::serializeMetrics(const TickSnapshot& snap) const {
 
 
 
+// ─── computeDelta ────────────────────────────────────────────────────────────
+json JsonWriter::computeDelta(const json& old_state, const json& new_state) const {
+    json delta = json::object();
+    
+    auto computeArrayDelta = [](const json& oldArr, const json& newArr, const std::string& idField) {
+        json arrDelta = json::array();
+        for (const auto& newObj : newArr) {
+            bool found = false;
+            json diffObj = json::object();
+            if (!oldArr.is_null()) {
+                for (const auto& oldObj : oldArr) {
+                    if (oldObj[idField] == newObj[idField]) {
+                        found = true;
+                        for (auto it = newObj.begin(); it != newObj.end(); ++it) {
+                            if (!oldObj.contains(it.key()) || oldObj[it.key()] != it.value()) {
+                                diffObj[it.key()] = it.value();
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                arrDelta.push_back(newObj);
+            } else if (!diffObj.empty()) {
+                diffObj[idField] = newObj[idField];
+                arrDelta.push_back(diffObj);
+            }
+        }
+        return arrDelta;
+    };
+
+    if (new_state.contains("process_table")) {
+        json ptDelta = computeArrayDelta(old_state.contains("process_table") ? old_state["process_table"] : json(nullptr), new_state["process_table"], "pid");
+        if (!ptDelta.empty()) delta["process_table"] = ptDelta;
+    }
+    if (new_state.contains("cores")) {
+        json coresDelta = computeArrayDelta(old_state.contains("cores") ? old_state["cores"] : json(nullptr), new_state["cores"], "id");
+        if (!coresDelta.empty()) delta["cores"] = coresDelta;
+    }
+    if (new_state.contains("io_devices")) {
+        json ioDelta = computeArrayDelta(old_state.contains("io_devices") ? old_state["io_devices"] : json(nullptr), new_state["io_devices"], "name");
+        if (!ioDelta.empty()) delta["io_devices"] = ioDelta;
+    }
+
+    if (new_state.contains("metrics") && (!old_state.contains("metrics") || old_state["metrics"] != new_state["metrics"])) {
+        delta["metrics"] = new_state["metrics"];
+    }
+    if (new_state.contains("memory") && (!old_state.contains("memory") || old_state["memory"] != new_state["memory"])) {
+        delta["memory"] = new_state["memory"];
+    }
+    if (new_state.contains("ready_queues") && (!old_state.contains("ready_queues") || old_state["ready_queues"] != new_state["ready_queues"])) {
+        delta["ready_queues"] = new_state["ready_queues"];
+    }
+    if (new_state.contains("waiting") && (!old_state.contains("waiting") || old_state["waiting"] != new_state["waiting"])) {
+        delta["waiting"] = new_state["waiting"];
+    }
+
+    return delta;
+}
+
 // ─── recordTick ──────────────────────────────────────────────────────────────
 void JsonWriter::recordTick(const TickSnapshot& snap) {
-    json tickObj;
-    tickObj["tick"] = snap.tick;
+    json fullState = json::object();
 
     // Cores
     json coresArr = json::array();
-    for (const auto& c : snap.cores) {
-        coresArr.push_back(serializeCore(c));
-    }
-    tickObj["cores"] = coresArr;
+    for (const auto& c : snap.cores) coresArr.push_back(serializeCore(c));
+    fullState["cores"] = coresArr;
 
-    // Ready queues (array of arrays)
+    // Ready queues
     json rqArr = json::array();
-    for (const auto& q : snap.readyQueues) {
-        rqArr.push_back(serializeReadyQueue(q));
-    }
-    tickObj["ready_queues"] = rqArr;
+    for (const auto& q : snap.readyQueues) rqArr.push_back(serializeReadyQueue(q));
+    fullState["ready_queues"] = rqArr;
 
     // Waiting list
-    tickObj["waiting"] = serializeWaiting(snap.waitingList);
+    fullState["waiting"] = serializeWaiting(snap.waitingList);
 
     // Process table
-    tickObj["process_table"] = serializeProcessTable(snap.processTable);
+    fullState["process_table"] = serializeProcessTable(snap.processTable);
 
     // Memory
     if (snap.pagedMemory) {
-        tickObj["memory"] = serializePagedMemory(*snap.pagedMemory);
-        tickObj["memory"]["type"] = "PAGED";
+        fullState["memory"] = serializePagedMemory(*snap.pagedMemory);
+        fullState["memory"]["type"] = "PAGED";
     } else if (snap.memory) {
-        tickObj["memory"] = serializeMemory(*snap.memory);
-        tickObj["memory"]["type"] = "CONTIGUOUS";
+        fullState["memory"] = serializeMemory(*snap.memory);
+        fullState["memory"]["type"] = "CONTIGUOUS";
     }
 
     // IO devices
     if (snap.ioManager) {
-        tickObj["io_devices"] = serializeIODevices(*snap.ioManager);
+        fullState["io_devices"] = serializeIODevices(*snap.ioManager);
     }
 
     // Metrics
-    tickObj["metrics"] = serializeMetrics(snap);
+    fullState["metrics"] = serializeMetrics(snap);
 
+    // Build the final tick object
+    json tickObj = json::object();
+    tickObj["tick"] = snap.tick;
+    
     // Console logs from this tick
     json logsArr = json::array();
-    for (const auto& msg : snap.consoleLogs) {
-        logsArr.push_back(msg);
+    for (const auto& msg : snap.consoleLogs) logsArr.push_back(msg);
+    if (!logsArr.empty()) {
+        tickObj["console_logs"] = logsArr;
     }
-    tickObj["console_logs"] = logsArr;
 
+    if (snap.tick % SNAPSHOT_INTERVAL == 0 || lastTickState_.is_null()) {
+        tickObj["type"] = "snapshot";
+        tickObj["state"] = fullState;
+    } else {
+        tickObj["type"] = "delta";
+        tickObj["updates"] = computeDelta(lastTickState_, fullState);
+    }
+
+    lastTickState_ = fullState;
     output_["ticks"].push_back(tickObj);
 }
 

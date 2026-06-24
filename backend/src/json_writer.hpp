@@ -67,23 +67,30 @@ class JsonWriter {
     bool write(const std::string &filepath) const;
 
    private:
+    json serializeCore(const CoreSnapshot &core) const;
+    json serializePagedMemory(const PagedMemoryManager &mem) const;
+
+    json computeDelta(const json& old_state, const json& new_state) const;
+
     std::string simName_;
     std::string schedulerName_;
     int totalMemoryMB_;
     int numCpus_;
-    json output_; // accumulates all ticks
+    json output_;
+    
+    // State tracking for delta compression
+    static constexpr int SNAPSHOT_INTERVAL = 100;
+    json lastTickState_ = nullptr;
 
-    json serializeCore(const CoreSnapshot &core) const;
     json serializeReadyQueue(const std::deque<PCB *> &q) const;
     json serializeWaiting(const std::vector<PCB *> &waiting) const;
     json serializeProcessTable(const std::vector<PCB *> &table) const;
     json serializeMemory(const MemoryManager &mem) const;
-    json serializePagedMemory(const PagedMemoryManager &mem) const;
     json serializeIODevices(const IOManager &io) const;
     json serializeMetrics(const TickSnapshot &snap) const;
     json serializeTimeline(const TickSnapshot &snap) const;
 
-    // Delta compression state
+    // Mutable state for const serializers
     mutable bool globalInfoWritten_ = false;
     mutable size_t lastProcessFramesHash_ = 0;
 };

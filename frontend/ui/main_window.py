@@ -40,6 +40,7 @@ from PySide6.QtGui import QAction
 from simulation.clock import SimClock
 from simulation.config import HardwareConfig
 from ui.styles import Colors, get_main_stylesheet
+from ui.state_patcher import get_state_at_tick, apply_delta
 import json
 import os
 import time
@@ -89,6 +90,7 @@ class MainWindow(QMainWindow):
         self._playback_tick: int = 0
         self._global_timeline: list = []
         self._global_logs: list = []
+        self._static_info: dict = {}
         self.output_file = output_file
         
         # Leer escenario en vivo para overrides de UI (simulando que C++ respetó la config)
@@ -119,48 +121,19 @@ class MainWindow(QMainWindow):
         self.io_widget.keyboard_signal.connect(self._on_keyboard_signal)
 
         if self._playback_data:
-            self._refresh(self._playback_data[0])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
 
     def _load_json(self, filepath: str):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            self._preprocess_playback_data(data)
+            self._static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
             self._playback_data = data.get("ticks", [])
             self._infer_frontend_data(self._playback_data)
         except Exception as e:
             print(f"Error cargando JSON inicial: {e}")
             self._playback_data = []
-
-    def _preprocess_playback_data(self, data: dict):
-        last_frames = []
-        static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
-        
-        for t in data.get("ticks", []):
-            if "memory" in t:
-                if "process_frames" in t["memory"]:
-                    last_frames = t["memory"]["process_frames"]
-                else:
-                    t["memory"]["process_frames"] = last_frames
-            elif "ram" in t:
-                if "process_frames" in t["ram"]:
-                    last_frames = t["ram"]["process_frames"]
-                else:
-                    t["ram"]["process_frames"] = last_frames
-                    
-            if "process_table" in t:
-                for p in t["process_table"]:
-                    if p["pid"] in static_info:
-                        p.update(static_info[p["pid"]])
-            if "ready_queues" in t:
-                for q in t["ready_queues"]:
-                    for p in q:
-                        if p["pid"] in static_info:
-                            p.update(static_info[p["pid"]])
-            if "waiting" in t:
-                for p in t["waiting"]:
-                    if p["pid"] in static_info:
-                        p.update(static_info[p["pid"]])
+            self._static_info = {}
 
     # ─────────────────────────────────────────────────────────────────────────
     # Construcción
@@ -332,8 +305,10 @@ class MainWindow(QMainWindow):
 
         # Detectar num cores desde el snapshot si está disponible, sino 1
         num_c = 1
-        if self._playback_data and "cores" in self._playback_data[0]:
-            num_c = len(self._playback_data[0]["cores"])
+        if self._playback_data:
+            first_state = get_state_at_tick(self._playback_data, 0, self._static_info)
+            if "cores" in first_state:
+                num_c = len(first_state["cores"])
 
         self.cpu_widget = CPUWidget(num_cores=num_c)
         self.cpu_widget.setMinimumHeight(150)
@@ -464,7 +439,7 @@ class MainWindow(QMainWindow):
             # ── Modo JSON: rebobinar al tick 0 ──
             self._playback_tick = 0
             if self._playback_data:
-                self._refresh(self._playback_data[0])
+                self._refresh(get_state_at_tick(self._playback_data, 0, self._static_info))
 
 
     def _on_speed(self, idx: int):
@@ -588,7 +563,7 @@ class MainWindow(QMainWindow):
         self._playback_tick = min(self._playback_tick, len(self._playback_data) - 1) if self._playback_data else 0
         
         if self._playback_data and self._playback_tick >= 0:
-            self._refresh(self._playback_data[self._playback_tick])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
 
         if was_running:
             self._on_start()
@@ -652,8 +627,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Recálculo Completo", f"El backend simuló el nuevo universo a partir del tick {d['arrival_tick']}. La animación continuará desde ese punto.")
             
             # Reanudar exactamente donde pausamos
-            if self._playback_tick < len(self._playback_data):
-                self._refresh(self._playback_data[self._playback_tick])
+            if self._playback_data and 0 <= self._playback_tick < len(self._playback_data):
+                self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
             self._on_start()
 
     def _on_keyboard_signal(self, pid: int, action: str):
@@ -729,7 +704,7 @@ class MainWindow(QMainWindow):
         self.btn_pause.setEnabled(False)
         self._playback_tick = min(tick_actual, len(self._playback_data) - 1)
         if self._playback_data and self._playback_tick >= 0:
-            self._refresh(self._playback_data[self._playback_tick])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
         # Siempre reanudar después de resolver la interrupción
         self._on_start()
 
@@ -739,9 +714,20 @@ class MainWindow(QMainWindow):
         self._global_timeline.clear()
         self._global_logs.clear()
         
+        # Keep a running state to correctly infer changes from deltas
+        base_state = {}
+        
         for snap in ticks:
             tick_num = snap.get("tick", 0)
-            current_procs = {p["pid"]: p for p in snap.get("process_table", [])}
+            
+            if snap.get("type") == "snapshot":
+                base_state = snap.get("state", {}).copy()
+            elif snap.get("type") == "delta":
+                apply_delta(base_state, snap.get("updates", {}))
+            else:
+                base_state = snap.copy()
+                
+            current_procs = {p["pid"]: p for p in base_state.get("process_table", [])}
             
             # Compatibilidad legacy: el snapshot puede usar "all_processes" en lugar de "process_table"
             if not current_procs and "all_processes" in snap:
@@ -755,7 +741,7 @@ class MainWindow(QMainWindow):
                     # Deducir el núcleo si está en RUNNING
                     core_id = None
                     if state == "RUNNING":
-                        for c in snap.get("cores", []):
+                        for c in base_state.get("cores", []):
                             if c.get("is_busy") and c.get("process", {}).get("pid") == pid:
                                 core_id = c.get("id")
                             elif c.get("status") == "RUNNING" and c.get("current_process") == pid:
@@ -801,7 +787,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Error", "El archivo no tiene el formato de output_modelo válido.")
                 return
                 
-            self._preprocess_playback_data(data)
+            self._static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
             self._playback_data = data["ticks"]
             self._infer_frontend_data(self._playback_data)
             self._playback_mode = True
@@ -817,7 +803,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Cargado", f"Se cargaron {len(self._playback_data)} fotogramas de simulación. Presiona Iniciar para reproducir.")
             
             # Mostrar tick 0
-            self._refresh(self._playback_data[0])
+            if self._playback_data:
+                self._refresh(get_state_at_tick(self._playback_data, 0, self._static_info))
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Fallo al cargar el archivo:\n{e}")
@@ -825,8 +812,8 @@ class MainWindow(QMainWindow):
     def _on_tick(self, tick: int):
         """Callback del clock: avanzar un fotograma en la reproducción."""
         if self._playback_mode and self._playback_data:
-            if self._playback_tick < len(self._playback_data):
-                snap = self._playback_data[self._playback_tick]
+            if 0 <= self._playback_tick < len(self._playback_data):
+                snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
                 self._refresh(snap)
                 self._playback_tick += 1
             else:

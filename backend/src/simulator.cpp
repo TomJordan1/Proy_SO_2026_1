@@ -157,6 +157,17 @@ void Simulator::admitNewProcesses(int tick) {
             scheduler_.admit(p, readyQueues_);
             log("[T=" + std::to_string(tick) + "] ADMIT P" +
                 std::to_string(p->pid) + " (" + p->name + ")");
+            
+            // Pre-page: eagerly load initial working set pages into RAM on arrival.
+            // This creates real memory pressure across multiple processes.
+            if (cfg_.memoryMode == MemoryMode::PAGED && pagedMemory_) {
+                int maxPages = (p->memorySizeMB * 1024) / PAGE_SIZE_KB;
+                int prePagesCount = std::max(1, (int)(maxPages * 0.15)); // Pre-load 15% of pages
+                for (int i = 0; i < prePagesCount && i < maxPages; ++i) {
+                    pagedMemory_->accessPage(p->pid, i, SegmentType::DATA, tick, false);
+                }
+            }
+            
             it = newList_.erase(it);
         } else {
             ++it;
@@ -297,8 +308,8 @@ void Simulator::executeOneCPUTick(int tick) {
             if (p->memWorkingSetSize <= 1 && maxPages > 0) {
                 std::uniform_int_distribution<int> typeDist(0, 1);
                 p->accessPattern = (typeDist(simRng) == 0) ? MemoryAccessPattern::SEQUENTIAL : MemoryAccessPattern::LOCALITY;
-                // Reduce working set to 5% so it's realistically small for a short burst
-                p->memWorkingSetSize = std::max(1, (int)(maxPages * 0.05)); 
+                // Working set at 30% of process pages to create real memory pressure and trigger swap
+                p->memWorkingSetSize = std::max(1, (int)(maxPages * 0.30)); 
                 p->memWorkingSetBase = 0;
                 p->memCurrentVpn = 0;
             }
@@ -408,6 +419,25 @@ void Simulator::executeOneCPUTick(int tick) {
         if (p->remainingTime <= 0) {
             terminateProcess(p, tick);
             core.current = nullptr;
+        }
+    }
+
+    // ── Memory pressure: READY processes touch their resident pages ──────────
+    // This simulates that loaded processes keep their working set in RAM,
+    // creating real memory pressure and triggering swap eviction when RAM fills.
+    if (cfg_.memoryMode == MemoryMode::PAGED && (tick % 10 == 0)) {
+        for (auto& q : readyQueues_) {
+            for (PCB* rp : q) {
+                if (!rp || rp->state != ProcessState::READY) continue;
+                int maxPages = (rp->memorySizeMB * 1024) / PAGE_SIZE_KB;
+                if (maxPages <= 0) continue;
+                // Touch a small number of pages to keep them referenced
+                int touchCount = std::min(3, rp->memWorkingSetSize);
+                for (int i = 0; i < touchCount; ++i) {
+                    int vpn = (rp->memWorkingSetBase + i) % maxPages;
+                    pagedMemory_->accessPage(rp->pid, vpn, SegmentType::DATA, tick, false);
+                }
+            }
         }
     }
 }
