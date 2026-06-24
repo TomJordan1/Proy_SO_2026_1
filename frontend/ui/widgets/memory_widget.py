@@ -23,6 +23,7 @@ from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QScrollArea,
@@ -741,7 +742,7 @@ class MemoryWidget(QWidget):
             self._mmu_log_group.setVisible(True)
             if logs:
                 # Filtrar logs de paginación
-                mmu_logs = [log["message"] for log in logs if "PAGE_FAULT" in log["message"] or "SWAP" in log["message"] or "Evict" in log["message"]]
+                mmu_logs = [log for log in logs if "PAGE_FAULT" in log or "SWAP" in log or "Evict" in log]
                 if mmu_logs:
                     text = "\n".join(mmu_logs[-15:])
                     self._mmu_log_area.setText(text)
