@@ -549,6 +549,10 @@ class ConfigDialog(QDialog):
     def _on_paged_toggled(self, checked: bool):
         self.frame_contig.setVisible(not checked)
         self.frame_paged.setVisible(checked)
+        if checked:
+            self.spin_mem.setValue(32)
+        else:
+            self.spin_mem.setValue(1024)
 
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
@@ -568,26 +572,26 @@ class ConfigDialog(QDialog):
 
     # Definiciones de procesos manuales predeterminadas de 20
     _DEFAULT_PROCS = [
-        ("Sistema",    10, 0, 16,  "SYSTEM"),
-        ("Kernel",      8, 0, 12,  "SYSTEM"),
-        ("svchost",    15, 1, 24,  "SYSTEM"),
-        ("Explorador", 30, 3, 48,  "INTERACTIVE"),
-        ("Navegador",  45, 2, 128, "INTERACTIVE"),
-        ("Editor",     25, 3, 64,  "CPU_BOUND"),
-        ("Compilador", 80, 4, 96,  "CPU_BOUND"),
-        ("Database",   20, 2, 80,  "IO_BOUND"),
-        ("Servidor",   60, 2, 64,  "IO_BOUND"),
-        ("Logger",     12, 5, 8,   "IO_BOUND"),
-        ("Antivirus",  40, 4, 32,  "CPU_BOUND"),
-        ("Backup",     90, 6, 48,  "IO_BOUND"),
-        ("Player",     35, 3, 96,  "INTERACTIVE"),
-        ("Terminal",   18, 2, 16,  "INTERACTIVE"),
-        ("Updater",    50, 7, 32,  "IO_BOUND"),
-        ("Scheduler",  10, 1, 8,   "SYSTEM"),
-        ("NetworkMgr", 22, 2, 24,  "IO_BOUND"),
-        ("UIServer",   28, 3, 40,  "INTERACTIVE"),
-        ("CryptoSvc",  55, 4, 32,  "CPU_BOUND"),
-        ("MemMgr",      8, 1, 12,  "SYSTEM"),
+        ("Sistema",    10, 0, 48,  "SYSTEM"),
+        ("Kernel",      8, 0, 32,  "SYSTEM"),
+        ("svchost",    15, 1, 64,  "SYSTEM"),
+        ("Explorador", 30, 3, 150, "INTERACTIVE"),
+        ("Navegador",  45, 2, 450, "INTERACTIVE"),
+        ("Editor",     25, 3, 200, "CPU_BOUND"),
+        ("Compilador", 80, 4, 350, "CPU_BOUND"),
+        ("Database",   20, 2, 500, "IO_BOUND"),
+        ("Servidor",   60, 2, 250, "IO_BOUND"),
+        ("Logger",     12, 5, 24,  "IO_BOUND"),
+        ("Antivirus",  40, 4, 180, "CPU_BOUND"),
+        ("Backup",     90, 6, 120, "IO_BOUND"),
+        ("Player",     35, 3, 280, "INTERACTIVE"),
+        ("Terminal",   18, 2, 45,  "INTERACTIVE"),
+        ("Updater",    50, 7, 85,  "IO_BOUND"),
+        ("Scheduler",  10, 1, 16,  "SYSTEM"),
+        ("NetworkMgr", 22, 2, 56,  "IO_BOUND"),
+        ("UIServer",   28, 3, 110, "INTERACTIVE"),
+        ("CryptoSvc",  55, 4, 140, "CPU_BOUND"),
+        ("MemMgr",      8, 1, 24,  "SYSTEM"),
     ]
 
     def _populate_default_manual_rows(self):
