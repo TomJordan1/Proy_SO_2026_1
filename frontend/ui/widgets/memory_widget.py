@@ -222,24 +222,7 @@ class _MemoryBar(QWidget):
             painter.setBrush(color)
             painter.drawRect(seg_x, 0, seg_w, h)
 
-        # Draw Addressing Grid (Rejilla de direccionamiento cada 16MB) solo si es paginada
-        if self._is_paged and self._total_mb > 0:
-            grid_color = QColor(Colors.TEXT_MUTED)
-            grid_color.setAlpha(100)
-            painter.setPen(QPen(grid_color, 1, Qt.PenStyle.DashLine))
-            page_size = 16
-            num_pages = int(self._total_mb // page_size)
-            scale = w / self._total_mb
-            for i in range(1, num_pages + 1):
-                mb = i * page_size
-                if mb >= self._total_mb:
-                    continue
-                x = int(mb * scale)
-                painter.drawLine(x, 0, x, h)
-                # Label
-                painter.setPen(QColor(Colors.TEXT_MUTED))
-                painter.drawText(x + 2, h - 2, f"{mb}")
-                painter.setPen(QPen(grid_color, 1, Qt.PenStyle.DashLine))
+
 
         # Superposición de bordes
         painter.setPen(QPen(QColor(Colors.BORDER), 1))
