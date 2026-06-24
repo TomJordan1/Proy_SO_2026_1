@@ -715,17 +715,19 @@ class MainWindow(QMainWindow):
         self._global_logs.clear()
         
         # Keep a running state to correctly infer changes from deltas
+        # IMPORTANT: use deepcopy to avoid corrupting snapshot raw data
+        import copy
         base_state = {}
         
         for snap in ticks:
             tick_num = snap.get("tick", 0)
             
             if snap.get("type") == "snapshot":
-                base_state = snap.get("state", {}).copy()
+                base_state = copy.deepcopy(snap.get("state", {}))
             elif snap.get("type") == "delta":
-                apply_delta(base_state, snap.get("updates", {}))
+                apply_delta(base_state, copy.deepcopy(snap.get("updates", {})))
             else:
-                base_state = snap.copy()
+                base_state = copy.deepcopy(snap)
                 
             current_procs = {p["pid"]: p for p in base_state.get("process_table", [])}
             
@@ -767,8 +769,10 @@ class MainWindow(QMainWindow):
                         
                     prev_states[pid] = state
             
-            snap["timeline_count"] = len(self._global_timeline)
-            snap["log_count"] = len(self._global_logs)
+            # Inject into the raw frame so get_state_at_tick can return them
+            raw_frame = snap  # snap IS the raw frame here (we iterate ticks directly)
+            raw_frame["_timeline_count"] = len(self._global_timeline)
+            raw_frame["_log_count"] = len(self._global_logs)
 
     def _on_load_json(self):
         import json
@@ -908,8 +912,11 @@ class MainWindow(QMainWindow):
         # ── Metrics ──────────────────────────────────────────────────────────
         self.metrics_widget.update(snap["metrics"])
 
-        # ── Timeline — support both list-of-dicts (new) and list-of-tuples (legacy) ──
-        timeline_count = snap.get("timeline_count", 0)
+        # ── Timeline — use _timeline_count injected into raw frame ──────────
+        # We need the raw frame's _timeline_count, not the reconstructed state
+        raw_frame = self._playback_data[self._playback_tick - 1] if self._playback_tick > 0 else (self._playback_data[0] if self._playback_data else {})
+        timeline_count = raw_frame.get("_timeline_count", raw_frame.get("timeline_count", len(self._global_timeline)))
+        log_count = raw_frame.get("_log_count", raw_frame.get("log_count", len(self._global_logs)))
         timeline_raw = self._global_timeline[:timeline_count]
         
         # Formato legacy fallback (si alguna vez se inyecta legacy directo)
@@ -930,7 +937,6 @@ class MainWindow(QMainWindow):
             self.log_widget.append_messages(console_logs)
         else:
             # Fallback: logs inferidos de cambios de estado
-            log_count = snap.get("log_count", 0)
             new_msgs = self._global_logs[self._log_offset:log_count]
             if new_msgs:
                 self.log_widget.append_messages(new_msgs)

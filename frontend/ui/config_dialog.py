@@ -102,6 +102,8 @@ class ConfigDialog(QDialog):
 
         self._manual_rows: List[ManualProcessRow] = []
         self._setup_ui()
+        # Inicializar el label de memoria correctamente
+        self._update_mem_label(self.spin_mem.value())
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
@@ -216,14 +218,14 @@ class ConfigDialog(QDialog):
 
         g.addWidget(_lbl("Memoria RAM total (MB):"), 0, 0)
         self.spin_mem = QSpinBox()
-        self.spin_mem.setRange(128, 4096)
-        self.spin_mem.setValue(1024)
-        self.spin_mem.setSingleStep(128)
+        self.spin_mem.setRange(32, 4096)
+        self.spin_mem.setValue(32)
+        self.spin_mem.setSingleStep(32)
         self.spin_mem.setFixedWidth(90)
         self.spin_mem.valueChanged.connect(self._update_mem_label)
         g.addWidget(self.spin_mem, 0, 1)
 
-        self.lbl_mem_total = _lbl("(1024 MB disponibles)", Colors.ACCENT_LIGHT)
+        self.lbl_mem_total = _lbl("", Colors.ACCENT_LIGHT)
         g.addWidget(self.lbl_mem_total, 0, 2)
 
         # Mode
@@ -547,9 +549,6 @@ class ConfigDialog(QDialog):
     def _on_paged_toggled(self, checked: bool):
         self.frame_contig.setVisible(not checked)
         self.frame_paged.setVisible(checked)
-        # Bajar la RAM a 128 MB por defecto al habilitar paginación para forzar Swap
-        if checked and self.spin_mem.value() > 256:
-            self.spin_mem.setValue(128)
 
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
@@ -557,8 +556,11 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        avail = val - 64  # OS reservation
+        os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
+        avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
+        if hasattr(self, 'spin_max_proc'):
+            self.spin_max_proc.setMaximum(val)
 
     def _update_speed_label(self, val: int):
         labels = ["Lento (2000 ms)", "Normal (800 ms)", "Rápido (250 ms)", "Turbo (80 ms)"]
@@ -623,7 +625,7 @@ class ConfigDialog(QDialog):
         self.spin_quantum.setValue(4)
         self.spin_ctx_cost.setValue(1)
         self.chk_preemptive.setChecked(True)
-        self.spin_mem.setValue(1024)
+        self.spin_mem.setValue(32)
         self.chk_paged.setChecked(False)
         self.spin_min_seg.setValue(4)
         self.spin_max_proc.setValue(256)
@@ -832,7 +834,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         64,
+                    "osReservedMB":         max(8, config.total_memory_mb // 4),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
