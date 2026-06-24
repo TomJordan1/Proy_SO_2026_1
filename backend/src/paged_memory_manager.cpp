@@ -74,7 +74,7 @@ int PagedMemoryManager::accessPage(int pid, int vpn, SegmentType type, unsigned 
     // 3. Page Fault (Page not in RAM)
     // We need to load it. Maybe it's in Swap, or maybe it's first time access.
     bool fromSwap = swapManager_.swapIn(pid, vpn);
-    int penalty = fromSwap ? swapManager_.getReadLatencyTicks() : 5; // Cost to read from disk vs alloc new page
+    int penalty = fromSwap ? swapManager_.getReadLatencyTicks() : 3; // Disks are extremely slow, so penalty is high.
 
     // 4. Find free frame or replace
     frame = frameTable_.allocateFrame(pid, vpn, type, currentTick);

@@ -444,6 +444,7 @@ class MemoryWidget(QWidget):
             h_ly = QHBoxLayout()
             h_ly.addWidget(QLabel("Proceso:"))
             self._pt_combo = __import__('PySide6.QtWidgets', fromlist=['QComboBox']).QComboBox()
+            self._pt_combo.currentIndexChanged.connect(self._on_pt_combo_change)
             h_ly.addWidget(self._pt_combo)
             h_ly.addStretch()
             p_ly.addLayout(h_ly)
@@ -462,7 +463,14 @@ class MemoryWidget(QWidget):
             
             ly.addWidget(self._vm_tabs)
 
-        # Actualizar datos del diálogo
+        self._refresh_vm_dialog()
+        if not self._vm_dialog.isVisible():
+            self._vm_dialog.show()
+
+    def _refresh_vm_dialog(self):
+        if not hasattr(self, "_vm_dialog") or not self._vm_dialog.isVisible():
+            return
+            
         d = self._paged_data
         if not d: return
         
@@ -471,9 +479,9 @@ class MemoryWidget(QWidget):
         entries = tlb.get("entries", [])
         self._tlb_table.setRowCount(len(entries))
         for i, e in enumerate(entries):
-            self._tlb_table.setItem(i, 0, QTableWidgetItem(str(e.get("pid"))))
-            self._tlb_table.setItem(i, 1, QTableWidgetItem(str(e.get("vpn"))))
-            self._tlb_table.setItem(i, 2, QTableWidgetItem(str(e.get("frame_number"))))
+            self._tlb_table.setItem(i, 0, __import__('PySide6.QtWidgets', fromlist=['QTableWidgetItem']).QTableWidgetItem(str(e.get("pid"))))
+            self._tlb_table.setItem(i, 1, __import__('PySide6.QtWidgets', fromlist=['QTableWidgetItem']).QTableWidgetItem(str(e.get("vpn"))))
+            self._tlb_table.setItem(i, 2, __import__('PySide6.QtWidgets', fromlist=['QTableWidgetItem']).QTableWidgetItem(str(e.get("frame_number"))))
             
         proc_frames = d.get("process_frames", [])
         self._pt_data = {}
@@ -489,26 +497,24 @@ class MemoryWidget(QWidget):
             }
             self._pt_data.setdefault(pid, []).append(p)
             
-        # Desconectar para no llamar 2 veces
-        try: self._pt_combo.currentIndexChanged.disconnect()
-        except: pass
-        
+        # Bloquear señales para no disparar eventos espurios al limpiar
+        self._pt_combo.blockSignals(True)
         self._pt_combo.clear()
         if self._pt_data:
             for pid in sorted(self._pt_data.keys()):
                 self._pt_combo.addItem(f"Process {pid}", pid)
-            self._pt_combo.currentIndexChanged.connect(self._on_pt_combo_change)
+            
+            # Restaurar señales y forzar la vista del primer proceso si se añadió alguno
+            self._pt_combo.blockSignals(False)
             self._on_pt_combo_change(self._pt_combo.currentIndex())
         else:
+            self._pt_combo.blockSignals(False)
             self._pt_table.setRowCount(0)
             
         swap = d.get("swap", {})
         max_p = swap.get("max_pages", 0)
         used_p = swap.get("used_pages", 0)
         self._swap_lbl.setText(f"Tamaño Total: {max_p * 4 / 1024.0:.1f} MB ({max_p} páginas)\nUsado: {used_p * 4 / 1024.0:.1f} MB ({used_p} páginas)\nLibre: {(max_p - used_p) * 4 / 1024.0:.1f} MB")
-
-        if not self._vm_dialog.isVisible():
-            self._vm_dialog.show()
 
     def _on_pt_combo_change(self, idx: int):
         from PySide6.QtWidgets import QTableWidgetItem
@@ -596,6 +602,10 @@ class MemoryWidget(QWidget):
                 {"is_free": True,  "segment_type": "swap_free", "size": free_swap * 4.0 / 1024.0, "label": f"Swap Free ({free_swap} p)"}
             ]
             self._swap_bar.set_segments(swap_segments, max_swap * 4.0 / 1024.0)
+            
+            # Dinámicamente refrescar el inspector si está abierto
+            if hasattr(self, "_vm_dialog") and self._vm_dialog.isVisible():
+                self._refresh_vm_dialog()
             
             free_pages = total_frames - os_pages - used_pages
             self._set_val(self._s_frag, "0.0%")

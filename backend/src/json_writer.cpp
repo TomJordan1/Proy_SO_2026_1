@@ -60,9 +60,6 @@ json JsonWriter::serializeReadyQueue(const std::deque<PCB*>& q) const {
     for (const PCB* p : q) {
         json entry;
         entry["pid"]          = p->pid;
-        entry["name"]         = p->name;
-        entry["type"]         = processTypeLabel(p->type);
-        entry["priority"]     = p->priority;
         entry["waiting_time"] = p->waitingTime;
         entry["waiting"]      = p->waitingTime;
         entry["remaining"]    = p->remainingTime;
@@ -77,9 +74,6 @@ json JsonWriter::serializeWaiting(const std::vector<PCB*>& waiting) const {
     for (const PCB* p : waiting) {
         json entry;
         entry["pid"]        = p->pid;
-        entry["name"]       = p->name;
-        entry["type"]       = processTypeLabel(p->type);
-        entry["priority"]   = p->priority;
         entry["io_device"]  = p->ioDevice.has_value() ? json(p->ioDevice.value()) : json(nullptr);
         arr.push_back(entry);
     }
@@ -88,6 +82,27 @@ json JsonWriter::serializeWaiting(const std::vector<PCB*>& waiting) const {
 
 // ─── serializeProcessTable ───────────────────────────────────────────────────
 json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
+    if (!globalInfoWritten_) {
+        json staticArr = json::array();
+        for (const PCB* p : table) {
+            json s;
+            s["pid"] = p->pid;
+            s["name"] = p->name;
+            s["type"] = processTypeLabel(p->type);
+            s["type_label"] = processTypeLabel(p->type);
+            s["process_type"] = processTypeToString(p->type);
+            s["priority"] = p->priority;
+            s["burst_time"] = p->burstTime;
+            s["memory_size"] = static_cast<double>(p->memorySizeMB);
+            s["mem_mb"] = static_cast<double>(p->memorySizeMB);
+            s["arrival_tick"] = p->arrivalTick;
+            s["memory_base_address"] = p->memoryBaseAddress;
+            staticArr.push_back(s);
+        }
+        const_cast<json&>(output_)["global_process_info"] = staticArr;
+        globalInfoWritten_ = true;
+    }
+
     json arr = json::array();
     for (const PCB* p : table) {
         if (p->state == ProcessState::TERMINATED && p->isAlive() == false) {
@@ -95,26 +110,16 @@ json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
         }
         json entry;
         entry["pid"]                = p->pid;
-        entry["name"]               = p->name;
-        entry["type"]               = processTypeLabel(p->type);
-        entry["type_label"]         = processTypeLabel(p->type);
-        entry["process_type"]       = processTypeToString(p->type);
         entry["state"]              = stateToString(p->state);
-        entry["priority"]           = p->priority;
-        entry["burst_time"]         = p->burstTime;
         entry["remaining_time"]     = p->remainingTime;
         entry["waiting_time"]       = p->waitingTime;
         entry["program_counter"]    = p->pc;
         entry["pc"]                 = p->pc;
         entry["pc_hex"]             = p->pcHex();
-        entry["memory_size"]        = static_cast<double>(p->memorySizeMB);
-        entry["mem_mb"]             = static_cast<double>(p->memorySizeMB);
         entry["completion_percent"] = p->completionPercent();
         entry["completion"]         = p->completionPercent();
         entry["cpu_id"]             = p->cpuId.has_value() ? json(p->cpuId.value()) : json(nullptr);
-        entry["memory_base_address"]= p->memoryBaseAddress;
         entry["io_device"]          = p->ioDevice.has_value() ? json(p->ioDevice.value()) : json(nullptr);
-        entry["arrival_tick"]       = p->arrivalTick;
         entry["response_time"]      = p->responseTime;
         entry["turnaround_time"]    = p->turnaround;
         if (p->errorCode != ErrorCode::NONE) {
@@ -176,25 +181,30 @@ json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
     j["os_reserved_frames"] = ft.getOsReservedFrames();
 
     // Process Frames (sparse) - ONLY write if changed!
-    json framesArr = json::array();
+    size_t currentHash = 0;
     for (const auto& f : ft.getFrames()) {
         if (!f.isFree && f.segmentType != SegmentType::OS) {
-            json fObj;
-            fObj["index"] = f.index;
-            fObj["is_free"] = f.isFree;
-            fObj["pid"] = f.pid.has_value() ? json(f.pid.value()) : json(nullptr);
-            fObj["vpn"] = f.vpn;
-            fObj["segment_type"] = segmentTypeToString(f.segmentType);
-            fObj["referenced"] = f.referenced;
-            fObj["modified"] = f.modified;
-            framesArr.push_back(fObj);
+            currentHash ^= std::hash<int>()(f.index) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
+            currentHash ^= std::hash<int>()(f.pid.value_or(-1)) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
+            currentHash ^= std::hash<int>()(f.vpn) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
         }
     }
 
-    std::string currentDump = framesArr.dump();
-    if (currentDump != lastProcessFramesDump_) {
+    if (currentHash != lastProcessFramesHash_ || lastProcessFramesHash_ == 0) {
+        json framesArr = json::array();
+        for (const auto& f : ft.getFrames()) {
+            if (!f.isFree && f.segmentType != SegmentType::OS) {
+                json fObj;
+                fObj["index"] = f.index;
+                fObj["is_free"] = f.isFree;
+                fObj["pid"] = f.pid.has_value() ? json(f.pid.value()) : json(nullptr);
+                fObj["vpn"] = f.vpn;
+                fObj["segment_type"] = segmentTypeToString(f.segmentType);
+                framesArr.push_back(fObj);
+            }
+        }
         j["process_frames"] = framesArr;
-        lastProcessFramesDump_ = currentDump;
+        lastProcessFramesHash_ = currentHash;
     }
     // else: omit "process_frames" completely to save space
     // Swap Stats
@@ -334,11 +344,12 @@ bool JsonWriter::write(const std::string& filepath) const {
         root["metadata"]["scheduler"]       = schedulerName_;
         root["metadata"]["total_memory_mb"] = totalMemoryMB_;
         root["metadata"]["num_cpus"]        = numCpus_;
+        root["global_process_info"]         = output_["global_process_info"];
         root["ticks"]                       = output_["ticks"];
 
         std::ofstream out(filepath);
         if (!out.is_open()) return false;
-        out << root.dump(2);
+        out << root.dump(1);
         return true;
 
     } catch (...) {

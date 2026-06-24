@@ -297,17 +297,21 @@ void Simulator::executeOneCPUTick(int tick) {
             if (p->memWorkingSetSize <= 1 && maxPages > 0) {
                 std::uniform_int_distribution<int> typeDist(0, 1);
                 p->accessPattern = (typeDist(simRng) == 0) ? MemoryAccessPattern::SEQUENTIAL : MemoryAccessPattern::LOCALITY;
-                p->memWorkingSetSize = std::max(1, (int)(maxPages * 0.20)); // 20% working set
+                // Reduce working set to 5% so it's realistically small for a short burst
+                p->memWorkingSetSize = std::max(1, (int)(maxPages * 0.05)); 
                 p->memWorkingSetBase = 0;
                 p->memCurrentVpn = 0;
             }
 
             for (int i = 0; i < accessesPerTick; ++i) {
-                int vpn = 0;
-                if (maxPages > 0) {
+                int vpn = p->memCurrentVpn;
+                
+                // 95% spatial locality (stay in the same 4KB page for multiple accesses)
+                std::uniform_real_distribution<double> spatialDist(0.0, 1.0);
+                if (spatialDist(simRng) > 0.95 && maxPages > 0) {
                     if (p->accessPattern == MemoryAccessPattern::SEQUENTIAL) {
-                        vpn = p->memCurrentVpn;
                         p->memCurrentVpn = (p->memCurrentVpn + 1) % maxPages;
+                        vpn = p->memCurrentVpn;
                     } else {
                         // LOCALITY (80-20 rule)
                         std::uniform_real_distribution<double> dist(0.0, 1.0);
@@ -323,6 +327,7 @@ void Simulator::executeOneCPUTick(int tick) {
                         if (dist(simRng) < 0.05) {
                             p->memWorkingSetBase = (p->memWorkingSetBase + 1) % maxPages;
                         }
+                        p->memCurrentVpn = vpn;
                     }
                 }
 

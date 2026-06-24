@@ -84,5 +84,6 @@ class JsonWriter {
     json serializeTimeline(const TickSnapshot &snap) const;
 
     // Delta compression state
-    mutable std::string lastProcessFramesDump_;
+    mutable bool globalInfoWritten_ = false;
+    mutable size_t lastProcessFramesHash_ = 0;
 };

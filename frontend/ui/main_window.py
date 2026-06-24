@@ -125,10 +125,42 @@ class MainWindow(QMainWindow):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            self._preprocess_playback_data(data)
             self._playback_data = data.get("ticks", [])
             self._infer_frontend_data(self._playback_data)
         except Exception as e:
+            print(f"Error cargando JSON inicial: {e}")
             self._playback_data = []
+
+    def _preprocess_playback_data(self, data: dict):
+        last_frames = []
+        static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
+        
+        for t in data.get("ticks", []):
+            if "memory" in t:
+                if "process_frames" in t["memory"]:
+                    last_frames = t["memory"]["process_frames"]
+                else:
+                    t["memory"]["process_frames"] = last_frames
+            elif "ram" in t:
+                if "process_frames" in t["ram"]:
+                    last_frames = t["ram"]["process_frames"]
+                else:
+                    t["ram"]["process_frames"] = last_frames
+                    
+            if "process_table" in t:
+                for p in t["process_table"]:
+                    if p["pid"] in static_info:
+                        p.update(static_info[p["pid"]])
+            if "ready_queues" in t:
+                for q in t["ready_queues"]:
+                    for p in q:
+                        if p["pid"] in static_info:
+                            p.update(static_info[p["pid"]])
+            if "waiting" in t:
+                for p in t["waiting"]:
+                    if p["pid"] in static_info:
+                        p.update(static_info[p["pid"]])
 
     # ─────────────────────────────────────────────────────────────────────────
     # Construcción
@@ -769,6 +801,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Error", "El archivo no tiene el formato de output_modelo válido.")
                 return
                 
+            self._preprocess_playback_data(data)
             self._playback_data = data["ticks"]
             self._infer_frontend_data(self._playback_data)
             self._playback_mode = True

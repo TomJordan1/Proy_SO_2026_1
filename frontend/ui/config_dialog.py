@@ -590,12 +590,14 @@ class ConfigDialog(QDialog):
 
     def _populate_default_manual_rows(self):
         """Pre-populate the manual list with 20 representative default processes."""
-        for i, (name, burst, prio, mem, ptype) in enumerate(self._DEFAULT_PROCS, start=1):
-            row = ManualProcessRow(i)
+        sys_mem = self.spin_mem.value()
+        cap = max(4, sys_mem // 4)
+        for name, burst, prio, mem, ptype in self._DEFAULT_PROCS:
+            row = ManualProcessRow(len(self._manual_rows) + 1)
             row.name_edit.setText(name)
             row.burst.setValue(burst)
             row.priority.setValue(prio)
-            row.memory.setValue(mem)
+            row.memory.setValue(min(cap, mem))
             row.ptype.setCurrentText(ptype)
             self._manual_rows.append(row)
             self.rows_layout.insertWidget(self.rows_layout.count(), row)
@@ -727,7 +729,10 @@ class ConfigDialog(QDialog):
                     info = p.info
                     if info['memory_info'] is None:
                         continue
-                    rss_mb = max(4, min(256, info['memory_info'].rss // (1024 * 1024)))
+                    
+                    sys_mem = self.spin_mem.value()
+                    cap = max(4, sys_mem // 4)
+                    rss_mb = max(4, min(cap, info['memory_info'].rss // (1024 * 1024)))
                     name = (info['name'] or 'proc')[:16]
                     # Heuristic type
                     nl = name.lower()
@@ -787,11 +792,15 @@ class ConfigDialog(QDialog):
             count = self.spin_proc_count.value()
             proc_list = self._get_psutil_processes(count)
             if not proc_list:
-                proc_list = [
-                    {"name": name, "burst_time": burst, "priority": prio,
-                     "memory_size": mem, "process_type": ptype}
-                    for name, burst, prio, mem, ptype in self._DEFAULT_PROCS[:count]
-                ]
+                sys_mem = self.spin_mem.value()
+                cap = max(4, sys_mem // 4)
+                proc_list = []
+                for name, burst, prio, mem, ptype in self._DEFAULT_PROCS[:count]:
+                    scaled_mem = max(4, min(cap, mem))
+                    proc_list.append({
+                        "name": name, "burst_time": burst, "priority": prio,
+                        "memory_size": scaled_mem, "process_type": ptype
+                    })
         else:
             proc_list = manual_procs
 

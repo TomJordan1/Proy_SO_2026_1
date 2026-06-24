@@ -58,21 +58,11 @@ def main():
     try:
         with open(output_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
-            # Pre-procesar JSON para restaurar process_frames omitidos (compresión)
-            last_frames = []
-            if "ticks" in data:
-                for t in data["ticks"]:
-                    if "ram" in t:
-                        if "process_frames" in t["ram"]:
-                            last_frames = t["ram"]["process_frames"]
-                        else:
-                            t["ram"]["process_frames"] = last_frames
-
-                if len(data["ticks"]) > 0:
-                    pass
+            # Solo leemos para verificar validez inicial, MainWindow hace el resto
+            if len(data.get("ticks", [])) > 0:
+                pass
     except Exception as e:
-        print(f"Error cargando JSON: {e}")
+        print(f"Error comprobando JSON en main: {e}")
 
     clock = SimClock(speed_ms=speed_ms)
     window = MainWindow(output_file, clock)
