@@ -794,6 +794,12 @@ class ConfigDialog(QDialog):
             count = self.spin_proc_count.value()
             proc_list = self._get_psutil_processes(count)
             if not proc_list:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Dependencia faltante", 
+                                    "No se pudo cargar la librería 'psutil' (o no devolvió procesos). "
+                                    "Se generarán procesos por defecto.\\n\\n"
+                                    "Abre tu terminal y ejecuta:\\n"
+                                    "pip install psutil")
                 sys_mem = self.spin_mem.value()
                 cap = max(4, sys_mem // 4)
                 proc_list = []
@@ -811,8 +817,6 @@ class ConfigDialog(QDialog):
         for i, p in enumerate(proc_list):
             if "arrival_tick" not in p:
                 p["arrival_tick"] = random.randint(0, 10)
-            if "burst_time" in p and p["burst_time"] < 100:
-                p["burst_time"] = random.randint(150, 400)
 
         now = datetime.now()
         data = {
