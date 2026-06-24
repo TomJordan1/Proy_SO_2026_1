@@ -245,8 +245,7 @@ class MainWindow(QMainWindow):
         self.spin_jump.setFixedWidth(80)
         self.spin_jump.setKeyboardTracking(False)
         self.spin_jump.setEnabled(False)
-        self.spin_jump.setToolTip("Presiona Enter o usa las flechas para saltar a un tick específico de la simulación")
-        self.spin_jump.valueChanged.connect(self._on_slider_jump)
+        self.spin_jump.setToolTip("Disponible solo en pausa. Cambia el valor y presiona Iniciar para saltar.")
         tb.addWidget(self.spin_jump)
 
         tb.addWidget(_sep())
@@ -435,6 +434,15 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_start(self):
+        if hasattr(self, "spin_jump") and self.spin_jump.isEnabled():
+            jump_val = self.spin_jump.value()
+            if self._playback_mode and self._playback_data and jump_val != self._playback_tick:
+                self._playback_tick = jump_val
+                self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
+                
+        if hasattr(self, "spin_jump"):
+            self.spin_jump.setEnabled(False)
+
         self.clock.start()
         self.btn_start.setEnabled(False)
         self.btn_pause.setEnabled(True)
@@ -445,6 +453,12 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self._update_playback_buttons(running=False)
+        
+        if hasattr(self, "spin_jump") and self._playback_mode and self._playback_data:
+            self.spin_jump.setEnabled(True)
+            self.spin_jump.blockSignals(True)
+            self.spin_jump.setValue(self._playback_tick)
+            self.spin_jump.blockSignals(False)
 
     def _on_reset(self):
         reply = QMessageBox.question(
@@ -861,12 +875,6 @@ class MainWindow(QMainWindow):
                 self._playback_tick += 1
             else:
                 self._on_pause()
-
-    def _on_slider_jump(self, value: int):
-        if self._playback_mode and self._playback_data:
-            self._playback_tick = value
-            snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
-            self._refresh(snap)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Refresco de UI
