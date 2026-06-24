@@ -91,8 +91,11 @@ def _seg_color(seg: Any) -> QColor:
 
 def _seg_size(seg: Any) -> float:
     if isinstance(seg, dict):
-        return float(seg.get("size") or seg.get("size_kb") or 0)
-    return float(getattr(seg, "size", 0))
+        if "size_mb" in seg:
+            return float(seg["size_mb"])
+        return float(seg.get("size") or seg.get("size_kb") or 0) / 1024.0
+    val = float(getattr(seg, "size", 0))
+    return val / 1024.0 if val > 0 else 0.0
 
 def _seg_label(seg: Any) -> str:
     if isinstance(seg, dict):
@@ -215,8 +218,8 @@ class _MemoryBar(QWidget):
             painter.setBrush(color)
             painter.drawRect(seg_x, 0, seg_w, h)
 
-        # Draw Addressing Grid (Rejilla de direccionamiento cada 16MB)
-        if self._total_mb > 0:
+        # Draw Addressing Grid (Rejilla de direccionamiento cada 16MB) solo si es paginada
+        if self._is_paged and self._total_mb > 0:
             grid_color = QColor(Colors.TEXT_MUTED)
             grid_color.setAlpha(100)
             painter.setPen(QPen(grid_color, 1, Qt.PenStyle.DashLine))
@@ -486,22 +489,6 @@ class MemoryWidget(QWidget):
         self._mmu.setVisible(False)
         root.addWidget(self._mmu)
 
-        # MMU Log panel
-        self._mmu_log_group = QGroupBox("Bitácora de Traducción y Fallos de Página")
-        self._mmu_log_group.setStyleSheet(f"color:{Colors.TEXT_PRIMARY}; font-weight:bold; border: 1px solid {Colors.BORDER}; border-radius: 4px; margin-top: 6px;")
-        log_layout = QVBoxLayout(self._mmu_log_group)
-        self._mmu_log_area = QLabel("Esperando actividad de MMU...")
-        self._mmu_log_area.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self._mmu_log_area.setStyleSheet(f"padding: 5px; font-family: Consolas; font-size: 11px; font-weight: normal; border: none;")
-        self._mmu_log_area.setWordWrap(True)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self._mmu_log_area)
-        scroll.setStyleSheet("border: none;")
-        log_layout.addWidget(scroll)
-        self._mmu_log_group.setVisible(False)
-        root.addWidget(self._mmu_log_group, stretch=1)
-
         root.addStretch()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -652,7 +639,7 @@ class MemoryWidget(QWidget):
             if os_pages > 0:
                 ram_segments.append({
                     "is_free": False, "pid": None, "segment_type": "os",
-                    "size": (os_pages * 4.0) / 1024.0, 
+                    "size_mb": (os_pages * 4.0) / 1024.0, 
                     "label": f"OS Reserved ({os_pages} frames)"
                 })
                 
@@ -666,7 +653,7 @@ class MemoryWidget(QWidget):
                     free_count = idx - curr_idx
                     ram_segments.append({
                         "is_free": True, "pid": None, "segment_type": "free",
-                        "size": (free_count * 4.0) / 1024.0, 
+                        "size_mb": (free_count * 4.0) / 1024.0, 
                         "label": f"Free ({free_count} frames)"
                     })
                 
@@ -675,7 +662,7 @@ class MemoryWidget(QWidget):
                 seg_type = str(f.get("segment_type", "FREE")).lower()
                 ram_segments.append({
                     "is_free": False, "pid": pid_val, "segment_type": seg_type,
-                    "size": 4.0 / 1024.0, 
+                    "size_mb": 4.0 / 1024.0, 
                     "label": f"F{idx} (P{pid_val} VPN {vpn})"
                 })
                 used_pages += 1
@@ -685,12 +672,12 @@ class MemoryWidget(QWidget):
                 free_count = total_frames - curr_idx
                 ram_segments.append({
                     "is_free": True, "pid": None, "segment_type": "free",
-                    "size": (free_count * 4.0) / 1024.0, 
+                    "size_mb": (free_count * 4.0) / 1024.0, 
                     "label": f"Free ({free_count} frames)"
                 })
                 
             total_ram_mb = total_frames * 4.0 / 1024.0
-            self._bar.set_segments(ram_segments, total_ram_mb)
+            self._bar.set_segments(ram_segments, total_ram_mb, is_paged=True)
             
             swap = segments.get("swap", {})
             max_swap = swap.get("max_pages", 0)
@@ -707,9 +694,6 @@ class MemoryWidget(QWidget):
             self._set_val(self._s_used, f"{used_pages * 4.0 / 1024.0:.1f} MB")
             self._set_val(self._s_free, f"{free_pages * 4.0 / 1024.0:.1f} MB")
             self._set_val(self._s_strat, f"VM Paginada ({os_pages * 4}KB OS)")
-            
-            if hasattr(self, "_vm_dialog") and self._vm_dialog and self._vm_dialog.isVisible():
-                self._show_vm_inspector()
                 
             return
 
@@ -717,7 +701,7 @@ class MemoryWidget(QWidget):
         self._swap_bar.setVisible(False)
 
         total_mb = float(stats.get("total_mb") or 1)
-        self._bar.set_segments(segments if isinstance(segments, list) else [], total_mb)
+        self._bar.set_segments(segments if isinstance(segments, list) else [], total_mb, is_paged=False)
 
         # Stats cards
         used  = stats.get("used_mb", 0)
@@ -739,15 +723,5 @@ class MemoryWidget(QWidget):
         if mmu:
             self._mmu.setVisible(True)
             self._mmu.refresh(mmu)
-            self._mmu_log_group.setVisible(True)
-            if logs:
-                # Filtrar logs de paginación
-                mmu_logs = [log for log in logs if "PAGE_FAULT" in log or "SWAP" in log or "Evict" in log]
-                if mmu_logs:
-                    text = "\n".join(mmu_logs[-15:])
-                    self._mmu_log_area.setText(text)
-                else:
-                    self._mmu_log_area.setText("Sin actividad reciente de MMU.")
         else:
             self._mmu.setVisible(False)
-            self._mmu_log_group.setVisible(False)
