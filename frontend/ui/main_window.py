@@ -242,9 +242,13 @@ class MainWindow(QMainWindow):
         
         tb.addWidget(_lbl(" Ir a Tick: "))
         self.spin_jump = QSpinBox()
-        self.spin_jump.setFixedWidth(80)
+        self.spin_jump.setFixedWidth(110)
         self.spin_jump.setKeyboardTracking(False)
         self.spin_jump.setEnabled(False)
+        if self._playback_data:
+            self.spin_jump.setRange(0, len(self._playback_data) - 1)
+        else:
+            self.spin_jump.setRange(0, 999999)
         self.spin_jump.setToolTip("Disponible solo en pausa. Cambia el valor y presiona Iniciar para saltar.")
         tb.addWidget(self.spin_jump)
 

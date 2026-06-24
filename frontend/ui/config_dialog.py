@@ -560,7 +560,8 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
+        # os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
+        os_reserved = 64
         avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
