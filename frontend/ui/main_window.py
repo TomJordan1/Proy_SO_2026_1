@@ -131,13 +131,13 @@ class MainWindow(QMainWindow):
             self._playback_data = data.get("ticks", [])
             self._infer_frontend_data(self._playback_data)
             
-            if hasattr(self, "slider_playback"):
+            if hasattr(self, "spin_jump"):
                 if self._playback_data:
-                    self.slider_playback.setEnabled(True)
-                    self.slider_playback.setRange(0, len(self._playback_data) - 1)
-                    self.slider_playback.setValue(0)
+                    self.spin_jump.setEnabled(True)
+                    self.spin_jump.setRange(0, len(self._playback_data) - 1)
+                    self.spin_jump.setValue(0)
                 else:
-                    self.slider_playback.setEnabled(False)
+                    self.spin_jump.setEnabled(False)
                     
         except Exception as e:
             print(f"Error cargando JSON inicial: {e}")
@@ -232,12 +232,14 @@ class MainWindow(QMainWindow):
 
         tb.addWidget(_sep())
         
-        self.slider_playback = QSlider(Qt.Orientation.Horizontal)
-        self.slider_playback.setFixedWidth(200)
-        self.slider_playback.setEnabled(False)
-        self.slider_playback.setToolTip("Saltar a un tick específico de la simulación")
-        self.slider_playback.valueChanged.connect(self._on_slider_jump)
-        tb.addWidget(self.slider_playback)
+        tb.addWidget(_lbl(" Ir a Tick: "))
+        self.spin_jump = QSpinBox()
+        self.spin_jump.setFixedWidth(80)
+        self.spin_jump.setKeyboardTracking(False)
+        self.spin_jump.setEnabled(False)
+        self.spin_jump.setToolTip("Presiona Enter o usa las flechas para saltar a un tick específico de la simulación")
+        self.spin_jump.valueChanged.connect(self._on_slider_jump)
+        tb.addWidget(self.spin_jump)
 
         tb.addWidget(_sep())
         
@@ -822,10 +824,10 @@ class MainWindow(QMainWindow):
             self._playback_mode = True
             self._playback_tick = 0
             
-            if hasattr(self, "slider_playback"):
-                self.slider_playback.setEnabled(True)
-                self.slider_playback.setRange(0, len(self._playback_data) - 1)
-                self.slider_playback.setValue(0)
+            if hasattr(self, "spin_jump"):
+                self.spin_jump.setEnabled(True)
+                self.spin_jump.setRange(0, len(self._playback_data) - 1)
+                self.spin_jump.setValue(0)
             
             # Deshabilitar controles del motor
             self.btn_new.setEnabled(False)
@@ -850,9 +852,9 @@ class MainWindow(QMainWindow):
                 snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
                 self._refresh(snap)
                 
-                self.slider_playback.blockSignals(True)
-                self.slider_playback.setValue(self._playback_tick)
-                self.slider_playback.blockSignals(False)
+                self.spin_jump.blockSignals(True)
+                self.spin_jump.setValue(self._playback_tick)
+                self.spin_jump.blockSignals(False)
                 
                 self._playback_tick += 1
             else:
