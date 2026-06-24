@@ -561,6 +561,13 @@ class MainWindow(QMainWindow):
             scen["hardware"]["cpu"]["scheduler"] = algo_backend
             scen["hardware"]["cpu"]["quantum"]   = self.spin_q.value()
             scen["hardware"]["cpu"]["preemptive"] = algo_backend in ("RR", "Priority")
+            
+            # Asegurar que los parámetros base de memoria se mantengan si no existen
+            if "totalMB" not in scen["hardware"]["memory"]:
+                scen["hardware"]["memory"]["totalMB"] = 32
+            if "osReservedMB" not in scen["hardware"]["memory"]:
+                scen["hardware"]["memory"]["osReservedMB"] = 8
+            
             scen["hardware"]["memory"]["allocationStrategy"] = mem_backend
             
             with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
