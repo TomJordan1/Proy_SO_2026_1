@@ -353,9 +353,8 @@ void Simulator::executeOneCPUTick(int tick) {
                 } else if (penalty > 0) {
                     if (penalty == 1) {
                         // TLB Miss, PT Hit (Hardware page walk) -> Stall CPU but do not context switch
-                        // log("[T=" + std::to_string(tick) + "] TLB_MISS P" + std::to_string(p->pid) + " (stalled)"); // Omitted to avoid spamming logs
-                        pageFaultOccurred = true;
-                        break;
+                        // We don't abort the batch. The hardware resolves it and continues execution.
+                        continue;
                     } else {
                         // Hard Page Fault (Disk I/O required) -> Context switch to WAITING
                         p->state = ProcessState::WAITING;

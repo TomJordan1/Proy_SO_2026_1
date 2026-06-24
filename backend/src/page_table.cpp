@@ -206,12 +206,15 @@ void TLB::insert(int pid, int vpn, int frameNumber) {
     }
     
     // If full, remove LRU (back)
-    if ((int)entries_.size() >= maxSize_) {
+    if ((int)entries_.size() >= maxSize_ && !entries_.empty()) {
         entries_.pop_back();
     }
     
-    // Insert at front (MRU)
-    entries_.push_front({pid, vpn, frameNumber});
+    // If maxSize_ is 0, we effectively disable TLB by not inserting
+    if (maxSize_ > 0) {
+        // Insert at front (MRU)
+        entries_.push_front({pid, vpn, frameNumber});
+    }
 }
 
 void TLB::invalidate(int pid, int vpn) {
