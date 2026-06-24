@@ -295,7 +295,7 @@ class _SwapPieChart(QWidget):
             angle = 0
             
         # Draw Used
-        painter.setBrush(QColor(Colors.ACCENT_DANGER)) 
+        painter.setBrush(QColor(Colors.STATE_ERROR)) 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPie(rect_x, rect_y, size, size, 90 * 16, -angle)
         
@@ -314,7 +314,7 @@ class _SwapPieChart(QWidget):
         
         painter.drawText(text_x, 35, f"Almacenamiento Swap: {self.total_mb:.1f} MB")
         
-        painter.setBrush(QColor(Colors.ACCENT_DANGER))
+        painter.setBrush(QColor(Colors.STATE_ERROR))
         painter.drawRect(text_x, 55, 12, 12)
         painter.drawText(text_x + 20, 66, f"Usado: {self.used_mb:.1f} MB")
         
