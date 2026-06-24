@@ -351,14 +351,22 @@ void Simulator::executeOneCPUTick(int tick) {
                     pageFaultOccurred = true;
                     break;
                 } else if (penalty > 0) {
-                    p->state = ProcessState::WAITING;
-                    p->ioDevice = "PAGE_FAULT";
-                    p->pageFaultRemainingTicks = penalty;
-                    waitingList_.push_back(p);
-                    core.current = nullptr;
-                    log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
-                    pageFaultOccurred = true;
-                    break;
+                    if (penalty == 1) {
+                        // TLB Miss, PT Hit (Hardware page walk) -> Stall CPU but do not context switch
+                        // log("[T=" + std::to_string(tick) + "] TLB_MISS P" + std::to_string(p->pid) + " (stalled)"); // Omitted to avoid spamming logs
+                        pageFaultOccurred = true;
+                        break;
+                    } else {
+                        // Hard Page Fault (Disk I/O required) -> Context switch to WAITING
+                        p->state = ProcessState::WAITING;
+                        p->ioDevice = "PAGE_FAULT";
+                        p->pageFaultRemainingTicks = penalty;
+                        waitingList_.push_back(p);
+                        core.current = nullptr;
+                        log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
+                        pageFaultOccurred = true;
+                        break;
+                    }
                 }
             }
 
