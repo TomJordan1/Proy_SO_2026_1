@@ -807,10 +807,12 @@ class ConfigDialog(QDialog):
             proc_list = manual_procs
 
         import random
-        # Evitar que todos lleguen en el tick 0
+        # Hacer que los procesos lleguen casi al mismo tiempo y duren más para forzar Swap
         for i, p in enumerate(proc_list):
             if "arrival_tick" not in p:
-                p["arrival_tick"] = 0 if i == 0 else random.randint(2, len(proc_list) * 10 + 50)
+                p["arrival_tick"] = random.randint(0, 10)
+            if "burst_time" in p and p["burst_time"] < 100:
+                p["burst_time"] = random.randint(150, 400)
 
         now = datetime.now()
         data = {
