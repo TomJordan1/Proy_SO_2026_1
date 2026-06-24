@@ -553,6 +553,14 @@ class ConfigDialog(QDialog):
             self.spin_mem.setValue(32)
         else:
             self.spin_mem.setValue(1024)
+            
+        # Reajustar automáticamente los tamaños de memoria si coinciden con los por defecto
+        for row in self._manual_rows:
+            name = row.name_edit.text()
+            for def_name, _, _, mem_contig, mem_paged, _ in self._DEFAULT_PROCS:
+                if name == def_name:
+                    row.memory.setValue(mem_paged if checked else mem_contig)
+                    break
 
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
@@ -560,7 +568,7 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        os_reserved = max(8, val // 4)  # 25% reserved for OS, minimum 8 MB
+        os_reserved = min(64, max(8, val // 4))
         avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
