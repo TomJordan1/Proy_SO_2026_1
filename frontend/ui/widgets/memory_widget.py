@@ -128,6 +128,7 @@ class _MemoryBar(QWidget):
         super().__init__(parent)
         self._segments: list[dict] = []
         self._total_mb: float = 1.0
+        self._is_paged: bool = False
         self._hover_seg: dict | None = None
         self._hover_pos: QPoint = QPoint()
         self._seg_rects: list[tuple[int, int, Any]] = []  # (x, ancho, seg) cacheados
@@ -136,9 +137,10 @@ class _MemoryBar(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setFixedHeight(self.TOTAL_H)
 
-    def set_segments(self, segments: list, total_mb: int) -> None:
+    def set_segments(self, segments: list, total_mb: int, is_paged: bool = False) -> None:
         self._segments = segments
         self._total_mb = max(total_mb, 1)
+        self._is_paged = is_paged
         self._recalculate_rects()
         self.update()
 
