@@ -6,7 +6,7 @@ Este documento detalla las tecnologías utilizadas en el simulador PatatOS y los
 
 | Componente | Tecnología | Descripción |
 | :--- | :--- | :--- |
-| **Motor de simulación** | C++17 | Usado para simular la lógica y el rendimiento. Compatible con GCC, Clang y MSVC. |
+| **Motor de simulación** | C++23 | Usado para simular la lógica y el rendimiento. Compatible con GCC, Clang y MSVC. |
 | **Sistema de compilación** | CMake | Usado para facilitar la compilación del código de C++ en múltiples plataformas. |
 | **Librería JSON** | nlohmann/json | Usado en C++ para parsear la configuración y exportar resultados. |
 | **Interfaz gráfica** | Python 3 + PySide6 | Usado para la interfaz de escritorio (Qt 6). |
@@ -14,7 +14,7 @@ Este documento detalla las tecnologías utilizadas en el simulador PatatOS y los
 
 ## 2. Requisitos previos
 Para ejecutar este proyecto, necesitas instalar:
-- Un compilador con soporte para C++17 (GCC 7+, Clang 5+, MSVC 2017+)
+- Un compilador con soporte para C++23 (GCC 11+, Clang 14+, MSVC 2022+)
 - CMake 3.15 o superior
 - Python 3.8 o superior
 - Librerías de Python requeridas (puedes instalarlas mediante pip):
