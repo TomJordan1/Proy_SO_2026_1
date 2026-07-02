@@ -162,11 +162,6 @@ class MainWindow(QMainWindow):
         
         action_export = menu.addAction("💾 Exportar Reporte")
         action_export.triggered.connect(self._on_export_report)
-        
-        view_menu = menu.addMenu("Ver")
-
-        self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
-        self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
 
         # ── Métricas en la parte superior derecha (Corner Widget) ──
         self.sb_tick    = QLabel("  T=0")
@@ -187,12 +182,7 @@ class MainWindow(QMainWindow):
             
         menu.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
 
-    def _add_toggle_action(self, menu, name, widget):
-        action = QAction(name, self)
-        action.setCheckable(True)
-        action.setChecked(not widget.isHidden())
-        action.toggled.connect(widget.setVisible)
-        menu.addAction(action)
+
 
     def _build_toolbar(self):
         tb = QToolBar()
@@ -323,17 +313,13 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(6, 6, 6, 4)
         root.setSpacing(4)
 
-        global_v_split = QSplitter(Qt.Orientation.Vertical)
-        global_v_split.setStyleSheet("QSplitter::handle { background: #333; height: 3px; }")
-        root.addWidget(global_v_split, stretch=1)
-
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet(f"""
             QTabWidget::pane {{ border: 1px solid {Colors.BORDER}; background: {Colors.BG_BASE}; }}
             QTabBar::tab {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_SEC}; padding: 8px 16px; border: 1px solid {Colors.BORDER}; }}
             QTabBar::tab:selected {{ background: {Colors.BG_ELEVATED}; color: {Colors.TEXT_PRIMARY}; border-bottom: 2px solid {Colors.ACCENT}; }}
         """)
-        global_v_split.addWidget(self.tabs)
+        root.addWidget(self.tabs, stretch=1)
 
         # ── Pestaña 1: Gestión de Procesos ─────────────────────────────────────────
         tab_procs = QWidget()
@@ -400,17 +386,23 @@ class MainWindow(QMainWindow):
         layout_io.addWidget(split_io)
         self.tabs.addTab(tab_io, "Gestión de E/S y Rendimiento")
 
-        # ── Timeline (Global Inferior) ─────────────────────────────────────────
+        # ── Pestaña 4: Timeline y Logs ─────────────────────────────────────────
+        tab_logs = QWidget()
+        layout_logs = QVBoxLayout(tab_logs)
+        layout_logs.setContentsMargins(4, 4, 4, 4)
+        
+        split_logs = QSplitter(Qt.Orientation.Vertical)
+        
         self.timeline_widget = TimelineWidget()
-        self.timeline_widget.setMinimumHeight(130)
-        global_v_split.addWidget(self.timeline_widget)
+        self.timeline_widget.setMinimumHeight(150)
+        split_logs.addWidget(self.timeline_widget)
 
-        # ── Log (Global Inferior) ──────────────────────────────────────────────
         self.log_widget = LogWidget()
         self.log_widget.setMinimumHeight(120)
-        global_v_split.addWidget(self.log_widget)
+        split_logs.addWidget(self.log_widget)
         
-        global_v_split.setSizes([600, 150, 120])
+        layout_logs.addWidget(split_logs)
+        self.tabs.addTab(tab_logs, "Línea de Tiempo y Registros")
 
     def _build_statusbar(self):
         sb = self.statusBar()
