@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHeaderView,
     QGridLayout,
+    QTabWidget
 )
 
 from ui.styles import Colors, pid_color
@@ -450,12 +451,6 @@ class MemoryWidget(QWidget):
             f"color:{Colors.ACCENT_LIGHT}; font-size:10pt; font-weight:700;"
         )
         hdr_layout.addWidget(hdr)
-        
-        self._btn_vm = QPushButton("🔍 Inspector VM")
-        self._btn_vm.setStyleSheet(f"background:{Colors.BG_ELEVATED}; border:1px solid {Colors.BORDER}; color:{Colors.ACCENT_LIGHT}; padding:4px 8px; border-radius:4px;")
-        self._btn_vm.setVisible(False)
-        self._btn_vm.clicked.connect(self._show_vm_inspector)
-        hdr_layout.addWidget(self._btn_vm)
         hdr_layout.addStretch()
         
         root.addLayout(hdr_layout)
@@ -488,12 +483,61 @@ class MemoryWidget(QWidget):
         line.setStyleSheet(f"color:{Colors.BORDER};")
         root.addWidget(line)
 
-        # MMU panel
+        # MMU panel (Usado en contiguous)
         self._mmu = _MMUPanel()
         self._mmu.setVisible(False)
         root.addWidget(self._mmu)
 
+        # Inspector VM Panel (Usado en paged)
+        self._init_vm_inspector()
+        self._vm_tabs.setVisible(False)
+        root.addWidget(self._vm_tabs)
+
         root.addStretch()
+
+    def _init_vm_inspector(self):
+        self._vm_tabs = QTabWidget()
+        self._vm_tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: 1px solid {Colors.BORDER}; background: {Colors.BG_BASE}; }}
+            QTabBar::tab {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_SEC}; padding: 6px 12px; }}
+            QTabBar::tab:selected {{ background: {Colors.BG_ELEVATED}; color: {Colors.ACCENT_LIGHT}; border-bottom: 2px solid {Colors.ACCENT_LIGHT}; }}
+        """)
+        
+        # TLB Tab
+        self._tlb_tab = QWidget()
+        t_ly = QVBoxLayout(self._tlb_tab)
+        self._tlb_lbl = QLabel()
+        t_ly.addWidget(self._tlb_lbl)
+        self._tlb_table = QTableWidget(0, 3)
+        self._tlb_table.setHorizontalHeaderLabels(["PID", "VPN", "Frame"])
+        t_ly.addWidget(self._tlb_table)
+        self._vm_tabs.addTab(self._tlb_tab, "TLB")
+        
+        # Page Table Tab
+        self._pt_tab = QWidget()
+        p_ly = QVBoxLayout(self._pt_tab)
+        
+        # Layout horizontal para controles
+        h_ly = QHBoxLayout()
+        h_ly.addWidget(QLabel("Proceso:"))
+        from PySide6.QtWidgets import QComboBox
+        self._pt_combo = QComboBox()
+        self._pt_combo.currentIndexChanged.connect(self._on_pt_combo_change)
+        h_ly.addWidget(self._pt_combo)
+        h_ly.addStretch()
+        p_ly.addLayout(h_ly)
+        
+        self._pt_table = QTableWidget(0, 5)
+        self._pt_table.setHorizontalHeaderLabels(["VPN", "Frame", "Valid", "Ref", "Mod"])
+        p_ly.addWidget(self._pt_table)
+        self._vm_tabs.addTab(self._pt_tab, "Page Tables")
+        
+        # Swap Tab
+        self._swap_tab = QWidget()
+        s_ly = QVBoxLayout(self._swap_tab)
+        self._swap_lbl = QLabel()
+        s_ly.addWidget(self._swap_lbl)
+        self._vm_tabs.addTab(self._swap_tab, "Swap")
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -503,63 +547,8 @@ class MemoryWidget(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def _show_vm_inspector(self):
-        from PySide6.QtWidgets import QDialog, QTabWidget, QTableWidgetItem
-        from PySide6.QtGui import QIcon
-
-        if not hasattr(self, "_vm_dialog") or self._vm_dialog is None:
-            self._vm_dialog = QDialog(self)
-            self._vm_dialog.setWindowTitle("Inspector de Memoria Virtual")
-            self._vm_dialog.resize(600, 400)
-            self._vm_dialog.setModal(False) # No intrusivo
-            
-            ly = QVBoxLayout(self._vm_dialog)
-            
-            self._vm_tabs = QTabWidget()
-            
-            # TLB Tab
-            self._tlb_tab = QWidget()
-            t_ly = QVBoxLayout(self._tlb_tab)
-            self._tlb_lbl = QLabel()
-            t_ly.addWidget(self._tlb_lbl)
-            self._tlb_table = QTableWidget(0, 3)
-            self._tlb_table.setHorizontalHeaderLabels(["PID", "VPN", "Frame"])
-            t_ly.addWidget(self._tlb_table)
-            self._vm_tabs.addTab(self._tlb_tab, "TLB")
-            
-            # Page Table Tab
-            self._pt_tab = QWidget()
-            p_ly = QVBoxLayout(self._pt_tab)
-            
-            # Layout horizontal para controles
-            h_ly = QHBoxLayout()
-            h_ly.addWidget(QLabel("Proceso:"))
-            self._pt_combo = __import__('PySide6.QtWidgets', fromlist=['QComboBox']).QComboBox()
-            self._pt_combo.currentIndexChanged.connect(self._on_pt_combo_change)
-            h_ly.addWidget(self._pt_combo)
-            h_ly.addStretch()
-            p_ly.addLayout(h_ly)
-            
-            self._pt_table = QTableWidget(0, 5)
-            self._pt_table.setHorizontalHeaderLabels(["VPN", "Frame", "Valid (V)", "Ref (R)", "Mod (M)"])
-            p_ly.addWidget(self._pt_table)
-            self._vm_tabs.addTab(self._pt_tab, "Page Tables")
-            
-            # Swap Tab
-            self._swap_tab = QWidget()
-            s_ly = QVBoxLayout(self._swap_tab)
-            self._swap_lbl = QLabel()
-            s_ly.addWidget(self._swap_lbl)
-            self._vm_tabs.addTab(self._swap_tab, "Swap")
-            
-            ly.addWidget(self._vm_tabs)
-
-        self._refresh_vm_dialog()
-        if not self._vm_dialog.isVisible():
-            self._vm_dialog.show()
-
     def _refresh_vm_dialog(self):
-        if not hasattr(self, "_vm_dialog") or not self._vm_dialog.isVisible():
+        if not hasattr(self, "_vm_tabs") or not self._vm_tabs.isVisible():
             return
             
         d = self._paged_data
@@ -631,7 +620,7 @@ class MemoryWidget(QWidget):
         """
         if isinstance(segments, dict) and segments.get("type") == "PAGED":
             self._paged_data = segments
-            self._btn_vm.setVisible(True)
+            self._vm_tabs.setVisible(True)
             self._swap_bar.setVisible(True)
             self._mmu.setVisible(False)
             

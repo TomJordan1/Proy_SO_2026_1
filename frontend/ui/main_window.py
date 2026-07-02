@@ -1160,6 +1160,7 @@ class MainWindow(QMainWindow):
                 self.clock.pause()
                 self.btn_start.setEnabled(False)   # bloquea reanudar hasta resolver
                 self.btn_pause.setEnabled(False)
+                self.tabs.setCurrentIndex(2)       # <--- AUTO NAVEGACIÓN A I/O
                 break
 
         # ── Metrics ──────────────────────────────────────────────────────────
