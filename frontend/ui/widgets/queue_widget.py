@@ -113,64 +113,86 @@ class _ProcessChip(QFrame):
 
 # ── Constructor de columnas ────────────────────────────────────────────────────────────
 
-def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGroupBox:
-    """Devuelve una columna QGroupBox vertical llena de chips de proceso."""
-    box = QGroupBox(title)
-    box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-    box.setStyleSheet(
-        f"""
-        QGroupBox {{
-            border: 1px solid {accent};
-            border-radius: 6px;
-            margin-top: 14px;
-            padding: 6px 4px 4px 4px;
-            background: {Colors.BG_SURFACE};
-            color: {Colors.TEXT_PRIMARY};
-            font-weight: 600;
-        }}
-        QGroupBox::title {{
-            subcontrol-origin: margin;
-            left: 8px; top: 0px;
-            padding: 0 4px;
-            color: {accent};
-            font-size: 9pt;
-        }}
-        """
-    )
-    # Contenedor interno scrollable para la cola horizontal
-    scroll = QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
-    scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-    scroll.setFixedHeight(75)
-    
-    inner_widget = QWidget()
-    inner_widget.setStyleSheet("background: transparent;")
-    layout = QHBoxLayout(inner_widget)
-    layout.setSpacing(6)
-    layout.setContentsMargins(4, 4, 4, 4)
-    layout.setAlignment(Qt.AlignTop)
-
-    if not processes:
-        empty = QLabel("(empty)")
-        empty.setStyleSheet(
-            f"color:{Colors.TEXT_MUTED}; font-size:8pt; font-style:italic;"
+class _QueueColumn(QGroupBox):
+    """Una columna QGroupBox horizontal llena de chips de proceso, persistente."""
+    def __init__(self, title: str, accent: str, parent=None):
+        super().__init__(title, parent)
+        self.accent = accent
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setStyleSheet(
+            f"""
+            QGroupBox {{
+                border: 1px solid {accent};
+                border-radius: 6px;
+                margin-top: 14px;
+                padding: 6px 4px 4px 4px;
+                background: {Colors.BG_SURFACE};
+                color: {Colors.TEXT_PRIMARY};
+                font-weight: 600;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 8px; top: 0px;
+                padding: 0 4px;
+                color: {accent};
+                font-size: 9pt;
+            }}
+            """
         )
-        empty.setAlignment(Qt.AlignCenter)
-        layout.addWidget(empty)
-    else:
-        for proc in processes:
-            chip = _ProcessChip(proc, accent)
-            layout.addWidget(chip)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll.setFixedHeight(75)
+        
+        self.inner_widget = QWidget()
+        self.inner_widget.setStyleSheet("background: transparent;")
+        self.h_layout = QHBoxLayout(self.inner_widget)
+        self.h_layout.setSpacing(6)
+        self.h_layout.setContentsMargins(4, 4, 4, 4)
+        self.h_layout.setAlignment(Qt.AlignTop)
 
-    layout.addStretch()
-    scroll.setWidget(inner_widget)
-    
-    box_layout = QVBoxLayout(box)
-    box_layout.setContentsMargins(4, 16, 4, 4)
-    box_layout.addWidget(scroll)
-    return box
+        self.scroll.setWidget(self.inner_widget)
+        
+        box_layout = QVBoxLayout(self)
+        box_layout.setContentsMargins(4, 16, 4, 4)
+        box_layout.addWidget(self.scroll)
+
+    def update_processes(self, processes: list[dict]):
+        # Guardar posición actual
+        bar = self.scroll.horizontalScrollBar()
+        old_val = bar.value()
+
+        # Limpiar
+        while self.h_layout.count():
+            item = self.h_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                while item.layout().count():
+                    sub = item.layout().takeAt(0)
+                    if sub.widget():
+                        sub.widget().deleteLater()
+
+        # Rellenar
+        if not processes:
+            empty = QLabel("(empty)")
+            empty.setStyleSheet(
+                f"color:{Colors.TEXT_MUTED}; font-size:8pt; font-style:italic;"
+            )
+            empty.setAlignment(Qt.AlignCenter)
+            self.h_layout.addWidget(empty)
+        else:
+            for proc in processes:
+                chip = _ProcessChip(proc, self.accent)
+                self.h_layout.addWidget(chip)
+
+        self.h_layout.addStretch()
+
+        # Restaurar posición tras el layout
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: bar.setValue(old_val))
 
 
 # ── Main widget ───────────────────────────────────────────────────────────────
@@ -178,14 +200,6 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
 class QueueWidget(QWidget):
     """
     Ready + Waiting queue visualizer.
-
-    Usage::
-
-        widget = QueueWidget()
-        widget.update(ready_queues, waiting)
-
-    ``ready_queues`` – list of lists (one inner list per CPU core).
-    ``waiting``      – flat list of dicts for blocked processes.
     """
 
     def __init__(self, parent=None):
@@ -194,10 +208,13 @@ class QueueWidget(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setSpacing(8)
         self._layout.setContentsMargins(0, 0, 0, 0)
+        
+        self._ready_columns: list[_QueueColumn] = []
+        self._wait_col: _QueueColumn = None
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def _clear(self) -> None:
+    def _clear_all(self) -> None:
         def clear_layout(layout):
             if layout is not None:
                 while layout.count():
@@ -208,63 +225,58 @@ class QueueWidget(QWidget):
                     else:
                         clear_layout(item.layout())
         clear_layout(self._layout)
+        self._ready_columns.clear()
+        self._wait_col = None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def update(self, ready_queues: list[list[dict]], waiting: list[dict]) -> None:  # type: ignore[override]
         """
         Refresh ready and waiting queue displays.
-
-        :param ready_queues: list of process lists, one per core.
-        :param waiting:      flat list of waiting/blocked process dicts.
         """
-        self._clear()
+        # Rebuild layout only if number of cores changed or uninitialized
+        if len(self._ready_columns) != len(ready_queues) or not self._ready_columns:
+            self._clear_all()
+            
+            # Ready Header
+            ready_hdr = QLabel("⚙ Ready Queues")
+            ready_hdr.setStyleSheet(
+                f"color:{Colors.STATE_READY}; font-size:9pt; font-weight:700;"
+            )
+            self._layout.addWidget(ready_hdr)
 
-        # ── Ready queues section ──────────────────────────────────────────────
-        ready_hdr = QLabel("⚙ Ready Queues")
-        ready_hdr.setStyleSheet(
-            f"color:{Colors.STATE_READY}; font-size:9pt; font-weight:700;"
-        )
-        self._layout.addWidget(ready_hdr)
-
-        ready_row = QHBoxLayout()
-        ready_row.setSpacing(6)
-
-        if not ready_queues:
-            none_lbl = QLabel("No ready queues")
-            none_lbl.setStyleSheet(f"color:{Colors.TEXT_MUTED}; font-size:8pt;")
-            ready_row.addWidget(none_lbl)
-        else:
-            for i, queue in enumerate(ready_queues):
+            # Ready Columns
+            ready_row = QHBoxLayout()
+            ready_row.setSpacing(6)
+            for i in range(len(ready_queues)):
                 accent = Colors.CORE_COLORS[i % len(Colors.CORE_COLORS)]
-                col = _build_queue_column(f"Core {i}", queue, accent)
+                col = _QueueColumn(f"Core {i}", accent)
+                self._ready_columns.append(col)
                 ready_row.addWidget(col)
+            self._layout.addLayout(ready_row)
 
-        self._layout.addLayout(ready_row)
+            # Divider
+            line = QFrame()
+            line.setFrameShape(QFrame.HLine)
+            line.setStyleSheet(f"color:{Colors.BORDER};")
+            self._layout.addWidget(line)
 
-        # Divider
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet(f"color:{Colors.BORDER};")
-        self._layout.addWidget(line)
-
-        # ── Waiting queue section ─────────────────────────────────────────────
-        wait_hdr = QLabel("⏳ Waiting / Blocked")
-        wait_hdr.setStyleSheet(
-            f"color:{Colors.STATE_WAITING}; font-size:9pt; font-weight:700;"
-        )
-        self._layout.addWidget(wait_hdr)
-
-        if not waiting:
-            empty_lbl = QLabel("No blocked processes")
-            empty_lbl.setStyleSheet(
-                f"color:{Colors.TEXT_MUTED}; font-size:8pt; font-style:italic;"
+            # Wait Header
+            wait_hdr = QLabel("⏳ Waiting / Blocked")
+            wait_hdr.setStyleSheet(
+                f"color:{Colors.STATE_WAITING}; font-size:9pt; font-weight:700;"
             )
-            self._layout.addWidget(empty_lbl)
-        else:
-            wait_col = _build_queue_column(
-                "Waiting Queue", waiting, Colors.STATE_WAITING
-            )
-            self._layout.addWidget(wait_col)
+            self._layout.addWidget(wait_hdr)
+            
+            # Wait Column
+            self._wait_col = _QueueColumn("Waiting Queue", Colors.STATE_WAITING)
+            self._layout.addWidget(self._wait_col)
+            
+            self._layout.addStretch()
 
-        self._layout.addStretch()
+        # Update data without recreating structural widgets
+        for i, queue in enumerate(ready_queues):
+            self._ready_columns[i].update_processes(queue)
+            
+        if self._wait_col:
+            self._wait_col.update_processes(waiting)
