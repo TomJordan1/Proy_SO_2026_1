@@ -160,6 +160,9 @@ class MainWindow(QMainWindow):
         action_reconfig = menu.addAction("⚙️ Reconfigurar Entorno")
         action_reconfig.triggered.connect(self._on_reconfigure)
         
+        action_export = menu.addAction("💾 Exportar Reporte")
+        action_export.triggered.connect(self._on_export_report)
+        
         view_menu = menu.addMenu("Ver")
 
         self._add_toggle_action(view_menu, "Cores de CPU", self.cpu_widget)
@@ -900,6 +903,55 @@ class MainWindow(QMainWindow):
                 self._playback_tick += 1
             else:
                 self._on_pause()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Exportación de reporte
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _on_export_report(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        
+        if not self._playback_data:
+            QMessageBox.warning(self, "Exportar Reporte", "No hay datos de simulación cargados para exportar.")
+            return
+            
+        last_frame = self._playback_data[-1]
+        last_snap = last_frame.get("state", last_frame)
+        if "metrics" not in last_snap:
+            QMessageBox.warning(self, "Exportar Reporte", "El último tick de la simulación no contiene información de métricas.")
+            return
+            
+        metrics = last_snap["metrics"]
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Exportar Reporte de Simulación", "reporte_simulacion.md", "Archivos Markdown (*.md)"
+        )
+        if not filepath:
+            return
+            
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write("# Reporte de Simulación - PatatOS\n\n")
+                f.write(f"Reporte generado en el Tick: {last_snap.get('tick', 0)}\n\n")
+                f.write("## Métricas Generales del Sistema\n\n")
+                f.write(f"- **Procesos Completados**: {metrics.get('completed_processes', 0)}\n")
+                f.write(f"- **Cambios de Contexto**: {metrics.get('context_switches', 0)}\n")
+                f.write(f"- **Rendimiento de CPU (Throughput)**: {metrics.get('throughput', 0):.4f} procs/tick\n")
+                f.write(f"- **Uso de CPU (Utilización)**: {metrics.get('cpu_utilization_pct', 0):.2f}%\n")
+                
+                f.write("\n## Tiempos Promedio\n\n")
+                f.write(f"- **Tiempo de Turnaround**: {metrics.get('avg_turnaround_time', 0):.2f} ticks\n")
+                f.write(f"- **Tiempo de Espera**: {metrics.get('avg_waiting_time', 0):.2f} ticks\n")
+                f.write(f"- **Tiempo de Respuesta**: {metrics.get('avg_response_time', 0):.2f} ticks\n")
+                
+                f.write("\n## Uso de Memoria y Paginación\n\n")
+                f.write(f"- **Fragmentación Interna**: {metrics.get('internal_fragmentation_mb', 0)} MB\n")
+                f.write(f"- **Fragmentación Externa**: {metrics.get('external_fragmentation_mb', 0)} MB\n")
+                f.write(f"- **Fallos de Página (Hard)**: {metrics.get('total_hard_page_faults', 0)}\n")
+                
+            QMessageBox.information(self, "Exportar Reporte", f"Reporte exportado exitosamente a:\n{filepath}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error al Exportar", f"No se pudo guardar el reporte:\n{e}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Refresco de UI
