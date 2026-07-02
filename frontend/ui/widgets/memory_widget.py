@@ -690,7 +690,7 @@ class MemoryWidget(QWidget):
                 
             return
 
-        self._btn_vm.setVisible(False)
+        self._vm_tabs.setVisible(False)
         self._swap_bar.setVisible(False)
 
         total_mb = float(stats.get("total_mb") or 1)
