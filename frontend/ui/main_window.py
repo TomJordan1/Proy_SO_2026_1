@@ -1002,6 +1002,7 @@ class MainWindow(QMainWindow):
                                 res_dict = dict(last_snap["metrics"])
                                 if "memory" in last_snap and "stats" in last_snap["memory"]:
                                     res_dict.update(last_snap["memory"]["stats"])
+                                res_dict["total_ticks"] = frame.get("tick", last_snap.get("tick", 0))
                                 results[strategy] = res_dict
                     except:
                         pass
@@ -1045,7 +1046,7 @@ class MainWindow(QMainWindow):
             
             html += "<h2>Resultados</h2>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
-            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Total Ticks</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
             
             best_frag_val = float('inf')
             best_frag_strat = ""
@@ -1059,12 +1060,13 @@ class MainWindow(QMainWindow):
                     continue
                     
                 ext_frag = m.get("fragmentation_percent", 0.0)
+                tot_ticks = m.get("total_ticks", 0)
                 ctx_sw = m.get("context_switches", 0)
                 avg_turn = m.get("avg_turnaround", m.get("avg_turnaround_time", 0))
                 avg_wait = m.get("avg_waiting_time", 0)
                 avg_resp = m.get("avg_response_time", 0)
                 
-                html += f"<tr><td>{strategy}</td><td>{ext_frag:.1f}%</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
+                html += f"<tr><td>{strategy}</td><td>{ext_frag:.1f}%</td><td>{tot_ticks}</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
                 
                 if ext_frag < best_frag_val:
                     best_frag_val = ext_frag
