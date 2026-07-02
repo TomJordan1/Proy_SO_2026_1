@@ -46,6 +46,18 @@ void Simulator::loadProcesses(const std::vector<ProcessDef>& defs) {
         pcb->arrivalTick  = def.arrival_tick;
         pcb->state        = ProcessState::NEW;
 
+        // Generate 5-20 random IOs depending on size and burst (Req Proc-12, Proc-13)
+        int numIO = 5 + (pcb->memorySizeMB % 16); 
+        if (numIO > 20) numIO = 20;
+        if (numIO > pcb->burstTime) numIO = std::max(1, pcb->burstTime / 2);
+        
+        if (pcb->burstTime > 1) {
+            std::uniform_int_distribution<int> ioTickDist(1, pcb->burstTime - 1);
+            for(int i = 0; i < numIO; ++i) {
+                pcb->plannedIOTicks.push_back(ioTickDist(simRng));
+            }
+        }
+
         // Allocate memory immediately (Long-Term Scheduler pre-allocates)
         if (cfg_.memoryMode == MemoryMode::PAGED) {
             if (pagedMemory_->allocateProcess(pcb->pid, pcb->memorySizeMB, 0)) {
@@ -123,6 +135,50 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
         for (auto& q : readyQueues_) {
             for (auto* p : q) {
                 p->waitingTime++;
+            }
+        }
+
+        // 9.5 Medium-Term Scheduler (Suspension/Resumption)
+        if (cfg_.memoryMode == MemoryMode::PAGED) {
+            ticksSinceLastMtsCheck_++;
+            if (ticksSinceLastMtsCheck_ >= 20) {
+                int currentPF = totalHardPageFaults_;
+                int pfDelta = currentPF - lastPageFaultCount_;
+                lastPageFaultCount_ = currentPF;
+                ticksSinceLastMtsCheck_ = 0;
+
+                // Thrashing detection: > 4 hard page faults in 20 ticks
+                if (pfDelta > 4) {
+                    // Suspend a process from ready queue (prefer large/low priority)
+                    PCB* victim = nullptr;
+                    for (auto it = readyQueues_.rbegin(); it != readyQueues_.rend(); ++it) {
+                        for (auto rp = it->begin(); rp != it->end(); ++rp) {
+                            if ((*rp)->state == ProcessState::READY) {
+                                victim = *rp;
+                                it->erase(rp);
+                                break;
+                            }
+                        }
+                        if (victim) break;
+                    }
+                    if (victim) {
+                        victim->state = ProcessState::SUSPENDED;
+                        suspendedList_.push_back(victim);
+                        log("[T=" + std::to_string(tick) + "] MTS: Suspending P" + std::to_string(victim->pid) + " due to Thrashing");
+                        pagedMemory_->freeProcess(victim->pid); // Free its RAM pages (swap them out)
+                    }
+                } else if (pfDelta == 0 && !suspendedList_.empty()) {
+                    // Memory pressure is low, resume a process
+                    PCB* p = suspendedList_.front();
+                    suspendedList_.erase(suspendedList_.begin());
+                    if (pagedMemory_->allocateProcess(p->pid, p->memorySizeMB, tick)) {
+                        p->state = ProcessState::READY;
+                        scheduler_.admit(p, readyQueues_);
+                        log("[T=" + std::to_string(tick) + "] MTS: Resuming P" + std::to_string(p->pid));
+                    } else {
+                        suspendedList_.push_back(p);
+                    }
+                }
             }
         }
 
@@ -360,6 +416,9 @@ void Simulator::executeOneCPUTick(int tick) {
                         p->state = ProcessState::WAITING;
                         p->ioDevice = "PAGE_FAULT";
                         p->pageFaultRemainingTicks = penalty;
+                        p->interruptCount++;
+                        p->interruptHistory.push_back("Page Fault (Swap I/O)");
+                        totalHardPageFaults_++;
                         waitingList_.push_back(p);
                         core.current = nullptr;
                         log("[T=" + std::to_string(tick) + "] PAGE_FAULT P" + std::to_string(p->pid) + " penalty=" + std::to_string(penalty));
@@ -392,27 +451,22 @@ void Simulator::executeOneCPUTick(int tick) {
             continue;
         }
 
-        // Random I/O interruption for IO_BOUND and INTERACTIVE processes
-        if (p->state != ProcessState::WAITING) {
-            static std::uniform_real_distribution<double> ioDist(0.0, 1.0);
-            double ioChance = 0.0;
-            if (p->type == ProcessType::IO_BOUND)    ioChance = 0.08;
-            if (p->type == ProcessType::INTERACTIVE) ioChance = 0.05;
-            ioChance *= cfg_.ioFreqMultiplier;
+        // I/O interruption based on planned ticks (Req Proc-12, Proc-13)
+        if (p->state != ProcessState::WAITING && p->remainingTime > 0) {
+            auto it = std::find(p->plannedIOTicks.begin(), p->plannedIOTicks.end(), p->pc);
+            if (it != p->plannedIOTicks.end()) {
+                p->plannedIOTicks.erase(it); // Consume the interrupt
 
-            if (ioChance > 0.0 && ioDist(simRng) < ioChance && p->remainingTime > 0) {
-                // Pick a random free device only
-                const auto& devs = io_.devices();
-                std::vector<const IODevice*> freeDevs;
-                for (const auto& d : devs) {
-                    if (!d.busy) freeDevs.push_back(&d);
-                }
-                if (!freeDevs.empty()) {
-                    std::uniform_int_distribution<int> devIdx(0, (int)freeDevs.size()-1);
-                    const std::string& devId = freeDevs[devIdx(simRng)]->id;
+                std::uniform_int_distribution<int> paramsDist(1, 100);
+                std::string params = "REQ_" + std::to_string(paramsDist(simRng));
+                
+                // random duration between 5 and 20 ticks
+                std::string devId = io_.randomInterrupt(p->pid, p->name, 5, 20, params);
+                if (!devId.empty()) {
                     p->ioDevice = devId;
                     p->state    = ProcessState::WAITING;
-                    io_.requestIO(p->pid, p->name, devId);
+                    p->interruptCount++;
+                    p->interruptHistory.push_back("I/O Device: " + devId + ", Params: " + params);
                     waitingList_.push_back(p);
                     core.current = nullptr;
                     log("[T=" + std::to_string(tick) + "] IO_REQ P" +
@@ -523,6 +577,20 @@ void Simulator::processEvents(int tick) {
                     std::to_string(ev.pid) + " (" + p->name + ")");
             }
             // If already WAITING (e.g. random IO fired this same tick), skip silently
+        } else if (ev.action == "WAIT_CHILD") {
+            if (p->state == ProcessState::RUNNING || p->state == ProcessState::READY) {
+                p->state    = ProcessState::WAITING;
+                p->ioDevice = "CHILD_PROCESS";
+                for (auto& core : cores_) {
+                    if (core.current == p) core.current = nullptr;
+                }
+                waitingList_.erase(
+                    std::remove(waitingList_.begin(), waitingList_.end(), p),
+                    waitingList_.end());
+                waitingList_.push_back(p);
+                log("[T=" + std::to_string(tick) + "] EVENT WAIT_CHILD P" +
+                    std::to_string(ev.pid) + " (" + p->name + ")");
+            }
         }
     }
 }
@@ -549,6 +617,19 @@ void Simulator::terminateProcess(PCB* p, int tick) {
         pagedMemory_->freeProcess(p->pid);
     } else {
         memory_.free(p->pid);
+    }
+
+    if (p->parentPid.has_value()) {
+        PCB* parent = findProcess(p->parentPid.value());
+        if (parent && parent->state == ProcessState::WAITING && parent->ioDevice == "CHILD_PROCESS") {
+            parent->ioDevice = std::nullopt;
+            parent->state = ProcessState::READY;
+            waitingList_.erase(
+                std::remove(waitingList_.begin(), waitingList_.end(), parent),
+                waitingList_.end());
+            scheduler_.admit(parent, readyQueues_);
+            log("[T=" + std::to_string(tick) + "] CHILD_DONE P" + std::to_string(p->pid) + " wakes up Parent P" + std::to_string(parent->pid));
+        }
     }
 
     sumTurnaround_ += p->turnaround;

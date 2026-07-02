@@ -49,7 +49,7 @@ void IOManager::startNext(IODevice& dev) {
 }
 
 // ─── requestIO ───────────────────────────────────────────────────────────────
-bool IOManager::requestIO(int pid, const std::string& processName, const std::string& deviceId) {
+bool IOManager::requestIO(int pid, const std::string& processName, const std::string& deviceId, const std::string& params) {
     IODevice* dev = findDevice(deviceId);
     if (!dev) return false;
 
@@ -61,6 +61,7 @@ bool IOManager::requestIO(int pid, const std::string& processName, const std::st
     req.processName   = processName;
     req.ticksRemaining = ticks;
     req.totalTicks    = ticks;
+    req.parameters    = params;
 
     if (!dev->busy) {
         dev->current = req;
@@ -104,11 +105,10 @@ void IOManager::tick(std::function<void(int pid, const std::string& deviceId)> o
     }
 }
 
-// ─── randomInterrupt ─────────────────────────────────────────────────────────
-bool IOManager::randomInterrupt(int pid, const std::string& processName,
-                                int minDuration, int maxDuration)
+std::string IOManager::randomInterrupt(int pid, const std::string& processName,
+                                int minDuration, int maxDuration, const std::string& params)
 {
-    if (devices_.empty()) return false;
+    if (devices_.empty()) return "";
 
     std::uniform_int_distribution<int> devDist(0, (int)devices_.size() - 1);
     std::uniform_int_distribution<int> durDist(minDuration, maxDuration);
@@ -121,6 +121,7 @@ bool IOManager::randomInterrupt(int pid, const std::string& processName,
     req.processName    = processName;
     req.ticksRemaining = ticks;
     req.totalTicks     = ticks;
+    req.parameters     = params;
 
     if (!dev.busy) {
         dev.current = req;
@@ -128,7 +129,7 @@ bool IOManager::randomInterrupt(int pid, const std::string& processName,
     } else {
         dev.queue.push_back(req);
     }
-    return true;
+    return dev.id;
 }
 
 // ─── isWaiting ───────────────────────────────────────────────────────────────

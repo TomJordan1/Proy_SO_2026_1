@@ -125,6 +125,11 @@ json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
         if (p->errorCode != ErrorCode::NONE) {
             entry["error_code"] = errorCodeToString(p->errorCode);
         }
+        entry["interrupt_count"]    = p->interruptCount;
+        entry["interrupt_history"]  = p->interruptHistory;
+        entry["parent_pid"]         = p->parentPid.has_value() ? json(p->parentPid.value()) : json(nullptr);
+        entry["children_pids"]      = p->childrenPids;
+        entry["memory_base"]        = p->memoryBaseAddress;
         arr.push_back(entry);
     }
     return arr;
@@ -246,6 +251,10 @@ json JsonWriter::serializeIODevices(const IOManager& io) const {
         d["current_name"]    = (dev.current.has_value()) ? json(dev.current->processName) : json(nullptr);
         d["progress_percent"]= dev.progressPercent();
         d["queue_pids"]      = dev.queuePids();
+        d["parameters"]      = (dev.current.has_value()) ? json(dev.current->parameters) : json(nullptr);
+        if (dev.current.has_value() && dev.current->errorCode != IOErrorCode::NONE) {
+            d["error_code"]  = ioErrorCodeToString(dev.current->errorCode);
+        }
         arr.push_back(d);
     }
     return arr;

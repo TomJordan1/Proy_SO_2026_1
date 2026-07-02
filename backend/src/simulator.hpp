@@ -54,6 +54,7 @@ private:
     std::vector<std::deque<PCB*>> readyQueues_;   // [level] → deque of PCBs
     std::vector<PCB*>             waitingList_;   // blocked on I/O
     std::vector<PCB*>             newList_;       // not yet admitted
+    std::vector<PCB*>             suspendedList_; // suspended by Medium-Term Scheduler
 
     // CPU cores
     std::vector<CPUCore> cores_;
@@ -74,7 +75,12 @@ private:
     double sumWaiting_          = 0;
     double sumResponse_         = 0;
 
-    // Last context switch event (for writer)
+    // Medium-Term Scheduler state
+    int totalHardPageFaults_    = 0;
+    int lastPageFaultCount_     = 0;
+    int ticksSinceLastMtsCheck_ = 0;
+
+    // Utilitiest context switch event (for writer)
     ContextSwitchEvent lastCtxEvent_;
     bool               hadCtxEvent_ = false;
 

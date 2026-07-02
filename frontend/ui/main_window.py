@@ -54,6 +54,7 @@ from ui.widgets.metrics_widget import MetricsWidget
 from ui.widgets.io_widget import IOStatusWidget
 from ui.widgets.timeline_widget import TimelineWidget
 from ui.widgets.log_widget import LogWidget
+from ui.widgets.gantt_widget import GanttWidget
 
 
 def _sep() -> QFrame:
@@ -165,10 +166,11 @@ class MainWindow(QMainWindow):
         self._add_toggle_action(view_menu, "Mapa de Memoria", self.memory_widget)
         self._add_toggle_action(view_menu, "Colas de Procesos", self.queue_widget)
         self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
-        self._add_toggle_action(view_menu, "Dispositivos I/O", self.io_widget)
+        self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
         self._add_toggle_action(view_menu, "Métricas", self.metrics_widget)
         self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
-        self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
+        self._add_toggle_action(view_menu, "Diagrama de Gantt", self.gantt_widget)
+        self._add_toggle_action(view_menu, "Terminal de Sistema", self.log_widget)
 
         # ── Métricas en la parte superior derecha (Corner Widget) ──
         self.sb_tick    = QLabel("  T=0")
@@ -389,6 +391,11 @@ class MainWindow(QMainWindow):
         self.timeline_widget = TimelineWidget()
         self.timeline_widget.setMinimumHeight(130)
         global_v_split.addWidget(self.timeline_widget)
+
+        # ── Gantt Chart ───────────────────────────────────────────────────────
+        self.gantt_widget = GanttWidget()
+        self.gantt_widget.setMinimumHeight(200)
+        global_v_split.addWidget(self.gantt_widget)
 
         # ── Log ───────────────────────────────────────────────────────────────
         self.log_widget = LogWidget()
@@ -946,7 +953,6 @@ class MainWindow(QMainWindow):
             # Legacy: la memoria era una lista de objetos MemorySegment o diccionarios raw
             mem_segments = mem_block if isinstance(mem_block, list) else snap.get("memory_stats", {})
             mem_stats    = snap.get("memory_stats", {})
-            mmu_dict     = snap.get("mmu_table", {})
             
         # Overrides visuales desde escenario_modelo.json (solo aplican a modo CONTIGUOUS)
         if self._live_config and "hardware" in self._live_config and isinstance(mem_block, dict) and mem_block.get("type") != "PAGED":
@@ -1003,8 +1009,8 @@ class MainWindow(QMainWindow):
         else:
             timeline_dicts = timeline_raw
             
-        self.timeline_widget.update(timeline_dicts, len(snap["cores"]))
-
+        self.timeline_widget.update(timeline_dicts, len(snap.get("cores", [])))
+        self.gantt_widget.update_gantt(timeline_dicts, snap.get("tick", 0))
         # ── Log: primero logs directos del motor C++, si no los inferidos ────
         console_logs = snap.get("console_logs", [])
         if console_logs:

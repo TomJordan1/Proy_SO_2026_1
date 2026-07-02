@@ -4,7 +4,7 @@
 #include <vector>
 
 // ─── Process States ─────────────────────────────────────────────────────────
-enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED, ERROR };
+enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED, ERROR, SUSPENDED };
 
 inline std::string stateToString(ProcessState s) {
     switch (s) {
@@ -20,6 +20,8 @@ inline std::string stateToString(ProcessState s) {
             return "TERMINATED";
         case ProcessState::ERROR:
             return "ERROR";
+        case ProcessState::SUSPENDED:
+            return "SUSPENDED";
     }
     return "UNKNOWN";
 }
@@ -216,6 +218,20 @@ inline std::string errorCodeToString(ErrorCode e) {
             return "ILLEGAL_ACCESS";
         case ErrorCode::CANCEL_USR:
             return "CANCEL_USR";
+    }
+    return "";
+}
+
+// ─── IO Error Codes ──────────────────────────────────────────────────────────
+enum class IOErrorCode { NONE, TIMEOUT, DEVICE_OFFLINE, CORRUPTED_DATA, PERMISSION_DENIED };
+
+inline std::string ioErrorCodeToString(IOErrorCode e) {
+    switch (e) {
+        case IOErrorCode::NONE: return "";
+        case IOErrorCode::TIMEOUT: return "TIMEOUT";
+        case IOErrorCode::DEVICE_OFFLINE: return "DEVICE_OFFLINE";
+        case IOErrorCode::CORRUPTED_DATA: return "CORRUPTED_DATA";
+        case IOErrorCode::PERMISSION_DENIED: return "PERMISSION_DENIED";
     }
     return "";
 }

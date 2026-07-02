@@ -60,6 +60,13 @@ struct PCB {
     // Error
     ErrorCode errorCode = ErrorCode::NONE;
 
+    // Interrupts & Parenting
+    int interruptCount = 0;
+    std::vector<std::string> interruptHistory;
+    std::optional<int> parentPid;
+    std::vector<int> childrenPids;
+    std::vector<int> plannedIOTicks;
+
     // CPU assignment
     std::optional<int> cpuId;
 
