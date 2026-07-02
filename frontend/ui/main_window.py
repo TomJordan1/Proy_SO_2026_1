@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QSpinBox,
     QSplitter, QFrame, QToolBar, QDialog, QMessageBox,
-    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy, QSlider
+    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy, QSlider, QTabWidget
 )
 from PySide6.QtGui import QAction
 
@@ -165,14 +165,20 @@ class MainWindow(QMainWindow):
         
         view_menu = menu.addMenu("Ver")
 
-        self._add_toggle_action(view_menu, "Cores de CPU", self.cpu_widget)
-        self._add_toggle_action(view_menu, "Mapa de Memoria", self.memory_widget)
-        self._add_toggle_action(view_menu, "Colas de Procesos", self.queue_widget)
-        self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
-        self._add_toggle_action(view_menu, "Dispositivos I/O", self.io_widget)
-        self._add_toggle_action(view_menu, "Métricas", self.metrics_widget)
-        self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
-        self._add_toggle_action(view_menu, "Diagrama de Gantt", self.gantt_widget)
+        action_tab_procs = menu.addAction("Pantalla: Procesos")
+        action_tab_procs.triggered.connect(lambda: self.tabs.setCurrentIndex(0))
+        
+        action_tab_mem = menu.addAction("Pantalla: Memoria")
+        action_tab_mem.triggered.connect(lambda: self.tabs.setCurrentIndex(1))
+        
+        action_tab_io = menu.addAction("Pantalla: E/S")
+        action_tab_io.triggered.connect(lambda: self.tabs.setCurrentIndex(2))
+        
+        view_menu.addAction(action_tab_procs)
+        view_menu.addAction(action_tab_mem)
+        view_menu.addAction(action_tab_io)
+        
+        view_menu.addSeparator()
         self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
 
         # ── Métricas en la parte superior derecha (Corner Widget) ──
@@ -334,15 +340,21 @@ class MainWindow(QMainWindow):
         global_v_split.setStyleSheet("QSplitter::handle { background: #333; height: 3px; }")
         root.addWidget(global_v_split, stretch=1)
 
-        main_split = QSplitter(Qt.Orientation.Horizontal)
-        main_split.setStyleSheet("QSplitter::handle { background: #333; width: 3px; }")
-        global_v_split.addWidget(main_split)
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: 1px solid {Colors.BORDER}; background: {Colors.BG_BASE}; }}
+            QTabBar::tab {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_SEC}; padding: 8px 16px; border: 1px solid {Colors.BORDER}; }}
+            QTabBar::tab:selected {{ background: {Colors.BG_ELEVATED}; color: {Colors.TEXT_PRIMARY}; border-bottom: 2px solid {Colors.ACCENT}; }}
+        """)
+        global_v_split.addWidget(self.tabs)
 
-        # ── Panel izquierdo ───────────────────────────────────────────────────
-        left_split = QSplitter(Qt.Orientation.Vertical)
-        left_split.setMinimumWidth(260)
-        left_split.setMaximumWidth(340)
-
+        # ── Pestaña 1: Gestión de Procesos ─────────────────────────────────────────
+        tab_procs = QWidget()
+        layout_procs = QVBoxLayout(tab_procs)
+        layout_procs.setContentsMargins(4, 4, 4, 4)
+        
+        split_procs = QSplitter(Qt.Orientation.Vertical)
+        
         # Detectar num cores desde el snapshot si está disponible, sino 1
         num_c = 1
         if self._playback_data:
@@ -352,61 +364,64 @@ class MainWindow(QMainWindow):
 
         self.cpu_widget = CPUWidget(num_cores=num_c)
         self.cpu_widget.setMinimumHeight(150)
-        left_split.addWidget(self.cpu_widget)
+        split_procs.addWidget(self.cpu_widget)
 
-        self.memory_widget = MemoryWidget()
-        self.memory_widget.setMinimumHeight(300)
-        left_split.addWidget(self.memory_widget)
-
-        main_split.addWidget(left_split)
-
-        # ── Panel central ─────────────────────────────────────────────────────
-        center_split = QSplitter(Qt.Orientation.Vertical)
-        center_split.setMinimumWidth(400)
-
+        split_procs_mid = QSplitter(Qt.Orientation.Horizontal)
         self.queue_widget = QueueWidget()
         self.queue_widget.setMinimumHeight(180)
-        center_split.addWidget(self.queue_widget)
+        split_procs_mid.addWidget(self.queue_widget)
 
         self.pcb_table = PCBTableWidget()
         self.pcb_table.setMinimumHeight(200)
-        center_split.addWidget(self.pcb_table)
+        split_procs_mid.addWidget(self.pcb_table)
+        
+        split_procs.addWidget(split_procs_mid)
 
-        main_split.addWidget(center_split)
+        self.gantt_widget = GanttWidget()
+        self.gantt_widget.setMinimumHeight(200)
+        split_procs.addWidget(self.gantt_widget)
 
-        # ── Panel derecho ─────────────────────────────────────────────────────
-        right_split = QSplitter(Qt.Orientation.Vertical)
-        right_split.setMinimumWidth(260)
-        right_split.setMaximumWidth(340)
+        layout_procs.addWidget(split_procs)
+        self.tabs.addTab(tab_procs, "Gestión de Procesos")
 
+        # ── Pestaña 2: Gestión de Memoria ──────────────────────────────────────────
+        tab_mem = QWidget()
+        layout_mem = QVBoxLayout(tab_mem)
+        layout_mem.setContentsMargins(4, 4, 4, 4)
+        
+        self.memory_widget = MemoryWidget()
+        self.memory_widget.setMinimumHeight(300)
+        layout_mem.addWidget(self.memory_widget)
+        self.tabs.addTab(tab_mem, "Gestión de Memoria")
+
+        # ── Pestaña 3: Gestión de E/S y Rendimiento ──────────────────────────────
+        tab_io = QWidget()
+        layout_io = QHBoxLayout(tab_io)
+        layout_io.setContentsMargins(4, 4, 4, 4)
+        
+        split_io = QSplitter(Qt.Orientation.Horizontal)
         self.io_widget = IOStatusWidget()
         self.io_widget.setMinimumHeight(200)
-        right_split.addWidget(self.io_widget)
-
+        split_io.addWidget(self.io_widget)
+        
         self.metrics_widget = MetricsWidget()
         self.metrics_widget.setMinimumHeight(180)
-        right_split.addWidget(self.metrics_widget)
+        split_io.addWidget(self.metrics_widget)
+        
+        layout_io.addWidget(split_io)
+        self.tabs.addTab(tab_io, "Gestión de E/S y Rendimiento")
 
-        main_split.addWidget(right_split)
-        main_split.setSizes([280, 800, 280])
-
-        # ── Timeline ──────────────────────────────────────────────────────────
+        # ── Timeline (Global Inferior) ─────────────────────────────────────────
         self.timeline_widget = TimelineWidget()
         self.timeline_widget.setMinimumHeight(130)
         global_v_split.addWidget(self.timeline_widget)
 
-        # ── Gantt Chart ───────────────────────────────────────────────────────
-        self.gantt_widget = GanttWidget()
-        self.gantt_widget.setMinimumHeight(200)
-        self.gantt_widget.hide() # Oculto por defecto para no aplastar el Log
-        global_v_split.addWidget(self.gantt_widget)
-
-        # ── Log ───────────────────────────────────────────────────────────────
+        # ── Log (Global Inferior) ──────────────────────────────────────────────
         self.log_widget = LogWidget()
-        self.log_widget.setMinimumHeight(160)
+        self.log_widget.setMinimumHeight(120)
         global_v_split.addWidget(self.log_widget)
         
-        global_v_split.setSizes([600, 150, 150])
+        global_v_split.setSizes([600, 150, 120])
 
     def _build_statusbar(self):
         sb = self.statusBar()
