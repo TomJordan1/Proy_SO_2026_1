@@ -169,11 +169,11 @@ class MainWindow(QMainWindow):
         self._add_toggle_action(view_menu, "Mapa de Memoria", self.memory_widget)
         self._add_toggle_action(view_menu, "Colas de Procesos", self.queue_widget)
         self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
-        self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
+        self._add_toggle_action(view_menu, "Dispositivos I/O", self.io_widget)
         self._add_toggle_action(view_menu, "Métricas", self.metrics_widget)
         self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
         self._add_toggle_action(view_menu, "Diagrama de Gantt", self.gantt_widget)
-        self._add_toggle_action(view_menu, "Terminal de Sistema", self.log_widget)
+        self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
 
         # ── Métricas en la parte superior derecha (Corner Widget) ──
         self.sb_tick    = QLabel("  T=0")
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
     def _add_toggle_action(self, menu, name, widget):
         action = QAction(name, self)
         action.setCheckable(True)
-        action.setChecked(True)
+        action.setChecked(not widget.isHidden())
         action.toggled.connect(widget.setVisible)
         menu.addAction(action)
 
@@ -398,6 +398,7 @@ class MainWindow(QMainWindow):
         # ── Gantt Chart ───────────────────────────────────────────────────────
         self.gantt_widget = GanttWidget()
         self.gantt_widget.setMinimumHeight(200)
+        self.gantt_widget.hide() # Oculto por defecto para no aplastar el Log
         global_v_split.addWidget(self.gantt_widget)
 
         # ── Log ───────────────────────────────────────────────────────────────
