@@ -1027,6 +1027,19 @@ class MainWindow(QMainWindow):
                 
             html += "<p>Este reporte compara el rendimiento (<i>performance</i>) y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: <b>FIRST_FIT</b>, <b>BEST_FIT</b>, y <b>WORST_FIT</b>.</p>"
             
+            # --- Inyectar la configuración del entorno ---
+            cores = len(base_scenario.get("hardware", {}).get("cpu", {}).get("cores", [1]))
+            algo = base_scenario.get("hardware", {}).get("cpu", {}).get("scheduler", "FCFS")
+            ram = base_scenario.get("hardware", {}).get("memory", {}).get("totalMB", 0)
+            n_procs = len(base_scenario.get("processes", []))
+            
+            html += "<h2>Configuración de Simulación</h2>"
+            html += "<ul>"
+            html += f"<li><b>CPU:</b> {cores} Núcleo(s), Algoritmo: {algo}</li>"
+            html += f"<li><b>Memoria:</b> {ram} MB Totales, Modo: Contiguo</li>"
+            html += f"<li><b>Carga:</b> {n_procs} Procesos evaluados</li>"
+            html += "</ul>"
+            
             html += "<h2>Resultados</h2>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
             html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
