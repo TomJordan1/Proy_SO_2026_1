@@ -142,13 +142,14 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
     scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-    scroll.setFixedHeight(90)
+    scroll.setFixedHeight(75)
     
     inner_widget = QWidget()
     inner_widget.setStyleSheet("background: transparent;")
     layout = QHBoxLayout(inner_widget)
     layout.setSpacing(6)
     layout.setContentsMargins(4, 4, 4, 4)
+    layout.setAlignment(Qt.AlignTop)
 
     if not processes:
         empty = QLabel("(empty)")
