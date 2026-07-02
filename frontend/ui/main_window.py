@@ -351,7 +351,6 @@ class MainWindow(QMainWindow):
 
         # ── Superior: QueueWidget (Toma todo el ancho) ──
         self.queue_widget = QueueWidget()
-        self.queue_widget.setMinimumHeight(180)
         split_procs.addWidget(self.queue_widget)
 
         # ── Medio: Splitter Horizontal (CPU a la izquierda, PCB a la derecha) ──

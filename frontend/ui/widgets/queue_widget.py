@@ -142,7 +142,7 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
     scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-    scroll.setMinimumHeight(80)
+    scroll.setFixedHeight(75)
     
     inner_widget = QWidget()
     inner_widget.setStyleSheet("background: transparent;")
@@ -188,26 +188,10 @@ class QueueWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        root = QVBoxLayout(self)
-        root.setSpacing(6)
-        root.setContentsMargins(0, 0, 0, 0)
-
-        # Scroll area wraps everything
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.NoFrame)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self._scroll.setStyleSheet(
-            f"QScrollArea {{ background:{Colors.BG_BASE}; border:none; }}"
-        )
-        root.addWidget(self._scroll)
-
-        self._container = QWidget()
-        self._layout = QVBoxLayout(self._container)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._layout = QVBoxLayout(self)
         self._layout.setSpacing(8)
         self._layout.setContentsMargins(0, 0, 0, 0)
-        self._scroll.setWidget(self._container)
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
