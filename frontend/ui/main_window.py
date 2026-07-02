@@ -165,20 +165,7 @@ class MainWindow(QMainWindow):
         
         view_menu = menu.addMenu("Ver")
 
-        action_tab_procs = menu.addAction("Pantalla: Procesos")
-        action_tab_procs.triggered.connect(lambda: self.tabs.setCurrentIndex(0))
-        
-        action_tab_mem = menu.addAction("Pantalla: Memoria")
-        action_tab_mem.triggered.connect(lambda: self.tabs.setCurrentIndex(1))
-        
-        action_tab_io = menu.addAction("Pantalla: E/S")
-        action_tab_io.triggered.connect(lambda: self.tabs.setCurrentIndex(2))
-        
-        view_menu.addAction(action_tab_procs)
-        view_menu.addAction(action_tab_mem)
-        view_menu.addAction(action_tab_io)
-        
-        view_menu.addSeparator()
+        self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
         self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
 
         # ── Métricas en la parte superior derecha (Corner Widget) ──
