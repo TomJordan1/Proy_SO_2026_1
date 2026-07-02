@@ -1228,9 +1228,20 @@ class MainWindow(QMainWindow):
         used = m.get('used_mb', 0)
         total = m.get('total_mb', 1)
         usage_pct = m.get('usage_pct', round((used / total) * 100, 1) if total else 0)
+        frag_val = m.get('fragmentation', m.get('fragmentation_percent', 0))
         
-        self.sb_mem.setText(f"  RAM: {usage_pct}%")
-        self.sb_frag.setText(f"  Frag: {m.get('fragmentation', m.get('fragmentation_percent', 0))}%")
+        try:
+            ram_str = f"{float(usage_pct):.1f}"
+        except:
+            ram_str = str(usage_pct)
+            
+        try:
+            frag_str = f"{float(frag_val):.1f}"
+        except:
+            frag_str = str(frag_val)
+        
+        self.sb_mem.setText(f"  RAM: {ram_str}%")
+        self.sb_frag.setText(f"  Frag: {frag_str}%")
         self.sb_ctx.setText(f"  CTX: {ctx_switches}")
 
 
