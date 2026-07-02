@@ -46,14 +46,16 @@ class _ProcessChip(QFrame):
                 background: {Colors.BG_CARD};
                 border: 1px solid {color};
                 border-left: 3px solid {color};
-                border-radius: 5px;
+                border-radius: 4px;
             }}
             QLabel {{ background: transparent; }}
             """
         )
+        self.setFixedWidth(130)
+        self.setFixedHeight(48)
         layout = QVBoxLayout(self)
-        layout.setSpacing(2)
-        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(0)
+        layout.setContentsMargins(4, 2, 4, 2)
 
         # ── Top row: name + type badge ─────────────────────────────────────────
         top = QHBoxLayout()
@@ -134,9 +136,19 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
         }}
         """
     )
-    layout = QVBoxLayout(box)
-    layout.setSpacing(4)
-    layout.setContentsMargins(4, 6, 4, 4)
+    # Contenedor interno scrollable para la cola horizontal
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
+    scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+    scroll.setMinimumHeight(80)
+    
+    inner_widget = QWidget()
+    inner_widget.setStyleSheet("background: transparent;")
+    layout = QHBoxLayout(inner_widget)
+    layout.setSpacing(6)
+    layout.setContentsMargins(4, 4, 4, 4)
 
     if not processes:
         empty = QLabel("(empty)")
@@ -151,6 +163,11 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
             layout.addWidget(chip)
 
     layout.addStretch()
+    scroll.setWidget(inner_widget)
+    
+    box_layout = QVBoxLayout(box)
+    box_layout.setContentsMargins(4, 16, 4, 4)
+    box_layout.addWidget(scroll)
     return box
 
 
