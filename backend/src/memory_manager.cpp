@@ -69,11 +69,11 @@ void MemoryManager::splitBlock(std::list<MemoryBlock>::iterator it, int size,
     int remaining = it->size - size;
     it->isFree       = false;
     it->pid          = pid;
-    it->size         = size;
     it->segmentType  = seg;
     it->label        = name + " [" + segmentTypeToString(seg) + "]";
 
     if (remaining >= minSegmentMB_) {
+        it->size = size; // Only shrink the block if we are creating a leftover
         MemoryBlock leftover;
         leftover.startAddress = it->startAddress + size;
         leftover.size         = remaining;
@@ -85,6 +85,8 @@ void MemoryManager::splitBlock(std::list<MemoryBlock>::iterator it, int size,
         ++next;
         blocks_.insert(next, leftover);
     }
+    // If remaining < minSegmentMB_, we keep the block size as its original size.
+    // This is internal fragmentation, but ensures no memory is lost!
 }
 
 // ─── mergeAdjacentFree ───────────────────────────────────────────────────────

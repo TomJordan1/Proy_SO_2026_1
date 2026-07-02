@@ -256,7 +256,7 @@ class CPUWidget(QWidget):
         super().__init__(parent)
         self._num_cores = max(1, min(num_cores, 4))
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setSpacing(8)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -267,6 +267,8 @@ class CPUWidget(QWidget):
             panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             layout.addWidget(panel)
             self._panels.append(panel)
+            
+        layout.addStretch()
 
     # ── Public API ─────────────────────────────────────────────────────────────
 

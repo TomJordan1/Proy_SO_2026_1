@@ -40,35 +40,40 @@ def main():
     if not os.path.exists(SHARED_DATA_DIR):
         os.makedirs(SHARED_DATA_DIR, exist_ok=True)
 
-    dlg = ConfigDialog()
-    if dlg.exec() != QDialog.DialogCode.Accepted:
-        sys.exit(0)
+    while True:
+        dlg = ConfigDialog()
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            break
 
-    # El diálogo ha creado "escenario_modelo.json" y fingió ejecutar C++.
-    # Ahora deberíamos tener "output_modelo.json".
-    output_file = OUTPUT_PATH
-    if not os.path.exists(output_file):
-        QMessageBox.critical(None, "Error", f"No se encontró el archivo {output_file} generado por el backend.")
-        sys.exit(1)
+        # El diálogo ha creado "escenario_modelo.json" y fingió ejecutar C++.
+        # Ahora deberíamos tener "output_modelo.json".
+        output_file = OUTPUT_PATH
+        if not os.path.exists(output_file):
+            QMessageBox.critical(None, "Error", f"No se encontró el archivo {output_file} generado por el backend.")
+            break
 
-    # ── Clock + Ventana ───────────────────────────────────────────────────────
-    # We don't have engine config anymore, let's read sim speed from json or default
-    import json
-    speed_ms = 800
-    try:
-        with open(output_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if "ticks" in data and len(data["ticks"]) > 0:
-                # Fallback speed, or we can read from escenario_modelo.json
-                pass
-    except:
-        pass
+        # ── Clock + Ventana ───────────────────────────────────────────────────────
+        import json
+        speed_ms = 800
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if len(data.get("ticks", [])) > 0:
+                    pass
+        except Exception as e:
+            print(f"Error comprobando JSON en main: {e}")
 
-    clock = SimClock(speed_ms=speed_ms)
-    window = MainWindow(output_file, clock)
-    window.show()
+        clock = SimClock(speed_ms=speed_ms)
+        window = MainWindow(output_file, clock)
+        window._wants_restart = False
+        window.show()
 
-    sys.exit(app.exec())
+        app.exec()
+        
+        if not getattr(window, '_wants_restart', False):
+            break
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

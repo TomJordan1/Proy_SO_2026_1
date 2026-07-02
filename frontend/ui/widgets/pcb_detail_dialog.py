@@ -481,6 +481,24 @@ class PCBDetailDialog(QDialog):
             return str(r)
 
         add("Registros",             "registers", fmt_func=fmt_regs)
+        fl.addWidget(_divider())
+        add("Interrupciones I/O",    "interrupt_count")
+        
+        def fmt_history(h):
+            if not h: return "Ninguna"
+            if isinstance(h, list): return "\n".join(f"- {x}" for x in h)
+            return str(h)
+            
+        add("Historial I/O",         "interrupt_history", fmt_func=fmt_history)
+        add("PID Padre",             "parent_pid")
+        
+        def fmt_children(c):
+            if not c: return "Ninguno"
+            if isinstance(c, list): return ", ".join(str(x) for x in c)
+            return str(c)
+            
+        add("PIDs Hijos",            "children_pids", fmt_func=fmt_children)
+        add("Código Error (Sys)",    "error_code")
         fl.addStretch()
         scroll.setWidget(fw)
         root.addWidget(scroll, 1)
@@ -538,4 +556,9 @@ class PCBDetailDialog(QDialog):
                     try: v = fmt.format(v)
                     except Exception: pass
             if label in self._val_labels:
-                self._val_labels[label].setText(str(v) if v is not None else "—")
+                lbl = self._val_labels[label]
+                lbl.setText(str(v) if v is not None else "—")
+                if label == "Código Error (Sys)" and v is not None and v != "NONE":
+                    lbl.setStyleSheet(f"color:{Colors.STATE_ERROR}; font-size:8pt; font-weight:bold;")
+                elif label == "Código Error (Sys)":
+                    lbl.setStyleSheet(f"color:{Colors.TEXT_PRIMARY}; font-size:8pt; font-family:monospace;")

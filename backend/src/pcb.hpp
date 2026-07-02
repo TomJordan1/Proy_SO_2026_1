@@ -45,13 +45,27 @@ struct PCB {
     int memoryBaseAddress = 0; // physical base in MB
     int stackPointer = 0;
     int heapPointer = 0;
+    MemoryAccessPattern accessPattern = MemoryAccessPattern::SEQUENTIAL;
+    int memCurrentVpn = 0;
+    int memWorkingSetBase = 0;
+    int memWorkingSetSize = 1;
 
     // I/O
     std::optional<std::string> ioDevice; // device being waited on
     int ioRemainingTicks = 0;
+    
+    // Page Faults
+    int pageFaultRemainingTicks = 0;
 
     // Error
     ErrorCode errorCode = ErrorCode::NONE;
+
+    // Interrupts & Parenting
+    int interruptCount = 0;
+    std::vector<std::string> interruptHistory;
+    std::optional<int> parentPid;
+    std::vector<int> childrenPids;
+    std::vector<int> plannedIOTicks;
 
     // CPU assignment
     std::optional<int> cpuId;

@@ -33,13 +33,14 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QSpinBox,
     QSplitter, QFrame, QToolBar, QDialog, QMessageBox,
-    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy
+    QLineEdit, QDoubleSpinBox, QScrollArea, QMenuBar, QSizePolicy, QSlider, QTabWidget
 )
 from PySide6.QtGui import QAction
 
 from simulation.clock import SimClock
 from simulation.config import HardwareConfig
 from ui.styles import Colors, get_main_stylesheet
+from ui.state_patcher import get_state_at_tick, apply_delta
 import json
 import os
 import time
@@ -53,6 +54,7 @@ from ui.widgets.metrics_widget import MetricsWidget
 from ui.widgets.io_widget import IOStatusWidget
 from ui.widgets.timeline_widget import TimelineWidget
 from ui.widgets.log_widget import LogWidget
+from ui.widgets.gantt_widget import GanttWidget
 
 
 def _sep() -> QFrame:
@@ -89,6 +91,7 @@ class MainWindow(QMainWindow):
         self._playback_tick: int = 0
         self._global_timeline: list = []
         self._global_logs: list = []
+        self._static_info: dict = {}
         self.output_file = output_file
         
         # Leer escenario en vivo para overrides de UI (simulando que C++ respetó la config)
@@ -119,16 +122,28 @@ class MainWindow(QMainWindow):
         self.io_widget.keyboard_signal.connect(self._on_keyboard_signal)
 
         if self._playback_data:
-            self._refresh(self._playback_data[0])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
 
     def _load_json(self, filepath: str):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
+            self._static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
             self._playback_data = data.get("ticks", [])
             self._infer_frontend_data(self._playback_data)
+            
+            if hasattr(self, "spin_jump"):
+                if self._playback_data:
+                    self.spin_jump.setEnabled(True)
+                    self.spin_jump.setRange(0, len(self._playback_data) - 1)
+                    self.spin_jump.setValue(0)
+                else:
+                    self.spin_jump.setEnabled(False)
+                    
         except Exception as e:
+            print(f"Error cargando JSON inicial: {e}")
             self._playback_data = []
+            self._static_info = {}
 
     # ─────────────────────────────────────────────────────────────────────────
     # Construcción
@@ -137,23 +152,37 @@ class MainWindow(QMainWindow):
     def _build_menu(self):
         menu = self.menuBar()
         menu.setStyleSheet(f"QMenuBar {{ background: {Colors.BG_BASE}; color: {Colors.TEXT_PRIMARY}; border-bottom: 1px solid {Colors.BORDER}; }} QMenuBar::item:selected {{ background: {Colors.BG_ELEVATED}; }} QMenu {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_PRIMARY}; border: 1px solid {Colors.BORDER}; }}")
-        view_menu = menu.addMenu("Ver")
+        
+        # Acción directa en el menú
+        action_load = menu.addAction("📂 Cargar JSON")
+        action_load.triggered.connect(self._on_load_json)
 
-        self._add_toggle_action(view_menu, "Cores de CPU", self.cpu_widget)
-        self._add_toggle_action(view_menu, "Mapa de Memoria", self.memory_widget)
-        self._add_toggle_action(view_menu, "Colas de Procesos", self.queue_widget)
-        self._add_toggle_action(view_menu, "Inspector PCB", self.pcb_table)
-        self._add_toggle_action(view_menu, "Dispositivos I/O", self.io_widget)
-        self._add_toggle_action(view_menu, "Métricas", self.metrics_widget)
-        self._add_toggle_action(view_menu, "Línea de Tiempo", self.timeline_widget)
-        self._add_toggle_action(view_menu, "Log del Sistema", self.log_widget)
+        action_reconfig = menu.addAction("⚙️ Reconfigurar Entorno")
+        action_reconfig.triggered.connect(self._on_reconfigure)
+        
+        action_export = menu.addAction("💾 Exportar Reporte")
+        action_export.triggered.connect(self._on_export_report)
 
-    def _add_toggle_action(self, menu, name, widget):
-        action = QAction(name, self)
-        action.setCheckable(True)
-        action.setChecked(True)
-        action.toggled.connect(widget.setVisible)
-        menu.addAction(action)
+        # ── Métricas en la parte superior derecha (Corner Widget) ──
+        self.sb_tick    = QLabel("  T=0")
+        self.sb_procs   = QLabel("  Procesos: 0")
+        self.sb_mem     = QLabel("  RAM: 0%")
+        self.sb_frag    = QLabel("  Frag: 0%")
+        self.sb_ctx     = QLabel("  CTX: 0")
+
+        corner_widget = QWidget(menu)
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(0, 0, 15, 0)
+        
+        for w in [self.sb_tick, QLabel(" | "),
+                  self.sb_procs, QLabel(" | "), self.sb_mem, QLabel(" | "),
+                  self.sb_frag, QLabel(" | "), self.sb_ctx]:
+            w.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; font-weight: bold;")
+            corner_layout.addWidget(w)
+            
+        menu.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
+
+
 
     def _build_toolbar(self):
         tb = QToolBar()
@@ -180,12 +209,14 @@ class MainWindow(QMainWindow):
         # Controles de simulación
         self.btn_start = QPushButton("▶  Iniciar")
         self.btn_start.setObjectName("btn_start")
+        self.btn_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_start.setFixedHeight(30)
         self.btn_start.clicked.connect(self._on_start)
         tb.addWidget(self.btn_start)
 
         self.btn_pause = QPushButton("⏸  Pausar")
         self.btn_pause.setObjectName("btn_pause")
+        self.btn_pause.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_pause.setFixedHeight(30)
         self.btn_pause.setEnabled(False)
         self.btn_pause.clicked.connect(self._on_pause)
@@ -193,21 +224,30 @@ class MainWindow(QMainWindow):
 
         self.btn_reset = QPushButton("↺  Reset")
         self.btn_reset.setObjectName("btn_reset")
+        self.btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reset.setFixedHeight(30)
         self.btn_reset.clicked.connect(self._on_reset)
         tb.addWidget(self.btn_reset)
 
         tb.addWidget(_sep())
         
-        self.btn_load_json = QPushButton("📂  Cargar JSON")
-        self.btn_load_json.setFixedHeight(30)
-        self.btn_load_json.clicked.connect(self._on_load_json)
-        tb.addWidget(self.btn_load_json)
+        tb.addWidget(_lbl(" Ir a Tick: "))
+        self.spin_jump = QSpinBox()
+        self.spin_jump.setFixedWidth(110)
+        self.spin_jump.setKeyboardTracking(False)
+        self.spin_jump.setEnabled(False)
+        if self._playback_data:
+            self.spin_jump.setRange(0, len(self._playback_data) - 1)
+        else:
+            self.spin_jump.setRange(0, 999999)
+        self.spin_jump.setToolTip("Disponible solo en pausa. Cambia el valor y presiona Iniciar para saltar.")
+        tb.addWidget(self.spin_jump)
 
         tb.addWidget(_sep())
 
         # Nuevo proceso
         self.btn_new = QPushButton("＋  Añadir Proceso en Caliente")
+        self.btn_new.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_new.setFixedHeight(30)
         self.btn_new.clicked.connect(self._on_new_process)
         tb.addWidget(self.btn_new)
@@ -259,18 +299,6 @@ class MainWindow(QMainWindow):
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         tb.addWidget(spacer)
 
-        # ── Métricas en la parte superior derecha ──
-        self.sb_tick    = QLabel("  T=0")
-        self.sb_procs   = QLabel("  Procesos: 0")
-        self.sb_mem     = QLabel("  RAM: 0%")
-        self.sb_frag    = QLabel("  Frag: 0%")
-        self.sb_ctx     = QLabel("  CTX: 0")
-
-        for w in [self.sb_tick, QLabel(" | "),
-                  self.sb_procs, QLabel(" | "), self.sb_mem, QLabel(" | "),
-                  self.sb_frag, QLabel(" | "), self.sb_ctx]:
-            tb.addWidget(w)
-
     def _build_central(self):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -285,75 +313,96 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(6, 6, 6, 4)
         root.setSpacing(4)
 
-        global_v_split = QSplitter(Qt.Orientation.Vertical)
-        global_v_split.setStyleSheet("QSplitter::handle { background: #333; height: 3px; }")
-        root.addWidget(global_v_split, stretch=1)
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: 1px solid {Colors.BORDER}; background: {Colors.BG_BASE}; }}
+            QTabBar::tab {{ background: {Colors.BG_SURFACE}; color: {Colors.TEXT_SEC}; padding: 8px 16px; border: 1px solid {Colors.BORDER}; }}
+            QTabBar::tab:selected {{ background: {Colors.BG_ELEVATED}; color: {Colors.TEXT_PRIMARY}; border-bottom: 2px solid {Colors.ACCENT}; }}
+        """)
+        root.addWidget(self.tabs, stretch=1)
 
-        main_split = QSplitter(Qt.Orientation.Horizontal)
-        main_split.setStyleSheet("QSplitter::handle { background: #333; width: 3px; }")
-        global_v_split.addWidget(main_split)
-
-        # ── Panel izquierdo ───────────────────────────────────────────────────
-        left_split = QSplitter(Qt.Orientation.Vertical)
-        left_split.setMinimumWidth(260)
-        left_split.setMaximumWidth(340)
-
+        # ── Pestaña 1: Gestión de Procesos ─────────────────────────────────────────
+        tab_procs = QWidget()
+        layout_procs = QVBoxLayout(tab_procs)
+        layout_procs.setContentsMargins(4, 4, 4, 4)
+        
+        split_procs = QSplitter(Qt.Orientation.Vertical)
+        
         # Detectar num cores desde el snapshot si está disponible, sino 1
         num_c = 1
-        if self._playback_data and "cores" in self._playback_data[0]:
-            num_c = len(self._playback_data[0]["cores"])
+        if self._playback_data:
+            first_state = get_state_at_tick(self._playback_data, 0, self._static_info)
+            if "cores" in first_state:
+                num_c = len(first_state["cores"])
 
+        # ── Superior: QueueWidget (Toma todo el ancho) ──
+        self.queue_widget = QueueWidget()
+        split_procs.addWidget(self.queue_widget)
+
+        # ── Medio: Splitter Horizontal (CPU a la izquierda, PCB a la derecha) ──
+        split_procs_mid = QSplitter(Qt.Orientation.Horizontal)
+        
         self.cpu_widget = CPUWidget(num_cores=num_c)
         self.cpu_widget.setMinimumHeight(150)
-        left_split.addWidget(self.cpu_widget)
-
-        self.memory_widget = MemoryWidget()
-        self.memory_widget.setMinimumHeight(300)
-        left_split.addWidget(self.memory_widget)
-
-        main_split.addWidget(left_split)
-
-        # ── Panel central ─────────────────────────────────────────────────────
-        center_split = QSplitter(Qt.Orientation.Vertical)
-        center_split.setMinimumWidth(400)
-
-        self.queue_widget = QueueWidget()
-        self.queue_widget.setMinimumHeight(180)
-        center_split.addWidget(self.queue_widget)
+        split_procs_mid.addWidget(self.cpu_widget)
 
         self.pcb_table = PCBTableWidget()
         self.pcb_table.setMinimumHeight(200)
-        center_split.addWidget(self.pcb_table)
+        split_procs_mid.addWidget(self.pcb_table)
+        
+        split_procs.addWidget(split_procs_mid)
 
-        main_split.addWidget(center_split)
+        self.gantt_widget = GanttWidget()
+        self.gantt_widget.setMinimumHeight(200)
+        split_procs.addWidget(self.gantt_widget)
 
-        # ── Panel derecho ─────────────────────────────────────────────────────
-        right_split = QSplitter(Qt.Orientation.Vertical)
-        right_split.setMinimumWidth(260)
-        right_split.setMaximumWidth(340)
+        layout_procs.addWidget(split_procs)
+        self.tabs.addTab(tab_procs, "Gestión de Procesos")
 
+        # ── Pestaña 2: Gestión de Memoria ──────────────────────────────────────────
+        tab_mem = QWidget()
+        layout_mem = QVBoxLayout(tab_mem)
+        layout_mem.setContentsMargins(4, 4, 4, 4)
+        
+        self.memory_widget = MemoryWidget()
+        self.memory_widget.setMinimumHeight(300)
+        layout_mem.addWidget(self.memory_widget)
+        self.tabs.addTab(tab_mem, "Gestión de Memoria")
+
+        # ── Pestaña 3: Gestión de E/S y Rendimiento ──────────────────────────────
+        tab_io = QWidget()
+        layout_io = QHBoxLayout(tab_io)
+        layout_io.setContentsMargins(4, 4, 4, 4)
+        
+        split_io = QSplitter(Qt.Orientation.Horizontal)
         self.io_widget = IOStatusWidget()
         self.io_widget.setMinimumHeight(200)
-        right_split.addWidget(self.io_widget)
-
+        split_io.addWidget(self.io_widget)
+        
         self.metrics_widget = MetricsWidget()
         self.metrics_widget.setMinimumHeight(180)
-        right_split.addWidget(self.metrics_widget)
-
-        main_split.addWidget(right_split)
-        main_split.setSizes([280, 800, 280])
-
-        # ── Timeline ──────────────────────────────────────────────────────────
-        self.timeline_widget = TimelineWidget()
-        self.timeline_widget.setMinimumHeight(130)
-        global_v_split.addWidget(self.timeline_widget)
-
-        # ── Log ───────────────────────────────────────────────────────────────
-        self.log_widget = LogWidget()
-        self.log_widget.setMinimumHeight(160)
-        global_v_split.addWidget(self.log_widget)
+        split_io.addWidget(self.metrics_widget)
         
-        global_v_split.setSizes([600, 150, 150])
+        layout_io.addWidget(split_io)
+        self.tabs.addTab(tab_io, "Gestión de E/S y Rendimiento")
+
+        # ── Pestaña 4: Timeline y Logs ─────────────────────────────────────────
+        tab_logs = QWidget()
+        layout_logs = QVBoxLayout(tab_logs)
+        layout_logs.setContentsMargins(4, 4, 4, 4)
+        
+        split_logs = QSplitter(Qt.Orientation.Vertical)
+        
+        self.timeline_widget = TimelineWidget()
+        self.timeline_widget.setMinimumHeight(150)
+        split_logs.addWidget(self.timeline_widget)
+
+        self.log_widget = LogWidget()
+        self.log_widget.setMinimumHeight(120)
+        split_logs.addWidget(self.log_widget)
+        
+        layout_logs.addWidget(split_logs)
+        self.tabs.addTab(tab_logs, "Línea de Tiempo y Registros")
 
     def _build_statusbar(self):
         sb = self.statusBar()
@@ -399,6 +448,15 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_start(self):
+        if hasattr(self, "spin_jump") and self.spin_jump.isEnabled():
+            jump_val = self.spin_jump.value()
+            if self._playback_mode and self._playback_data and jump_val != self._playback_tick:
+                self._playback_tick = jump_val
+                self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
+                
+        if hasattr(self, "spin_jump"):
+            self.spin_jump.setEnabled(False)
+
         self.clock.start()
         self.btn_start.setEnabled(False)
         self.btn_pause.setEnabled(True)
@@ -409,6 +467,12 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self._update_playback_buttons(running=False)
+        
+        if hasattr(self, "spin_jump") and self._playback_mode and self._playback_data:
+            self.spin_jump.setEnabled(True)
+            self.spin_jump.blockSignals(True)
+            self.spin_jump.setValue(self._playback_tick)
+            self.spin_jump.blockSignals(False)
 
     def _on_reset(self):
         reply = QMessageBox.question(
@@ -432,7 +496,7 @@ class MainWindow(QMainWindow):
             # ── Modo JSON: rebobinar al tick 0 ──
             self._playback_tick = 0
             if self._playback_data:
-                self._refresh(self._playback_data[0])
+                self._refresh(get_state_at_tick(self._playback_data, 0, self._static_info))
 
 
     def _on_speed(self, idx: int):
@@ -443,7 +507,7 @@ class MainWindow(QMainWindow):
             self.clock.set_speed(speeds[idx])
         else:
             val, ok = QInputDialog.getInt(self, "Velocidad Personalizada", "Milisegundos por tick (ms/t):", 
-                                          self.clock._speed_ms, 10, 10000, 10)
+                                          self.clock._speed_ms, 1, 10000, 1)
             if ok:
                 self.clock.set_speed(val)
             else:
@@ -511,6 +575,13 @@ class MainWindow(QMainWindow):
             scen["hardware"]["cpu"]["scheduler"] = algo_backend
             scen["hardware"]["cpu"]["quantum"]   = self.spin_q.value()
             scen["hardware"]["cpu"]["preemptive"] = algo_backend in ("RR", "Priority")
+            
+            # Asegurar que los parámetros base de memoria se mantengan si no existen
+            if "totalMB" not in scen["hardware"]["memory"]:
+                scen["hardware"]["memory"]["totalMB"] = 32
+            if "osReservedMB" not in scen["hardware"]["memory"]:
+                scen["hardware"]["memory"]["osReservedMB"] = 8
+            
             scen["hardware"]["memory"]["allocationStrategy"] = mem_backend
             
             with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
@@ -556,7 +627,7 @@ class MainWindow(QMainWindow):
         self._playback_tick = min(self._playback_tick, len(self._playback_data) - 1) if self._playback_data else 0
         
         if self._playback_data and self._playback_tick >= 0:
-            self._refresh(self._playback_data[self._playback_tick])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
 
         if was_running:
             self._on_start()
@@ -620,8 +691,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Recálculo Completo", f"El backend simuló el nuevo universo a partir del tick {d['arrival_tick']}. La animación continuará desde ese punto.")
             
             # Reanudar exactamente donde pausamos
-            if self._playback_tick < len(self._playback_data):
-                self._refresh(self._playback_data[self._playback_tick])
+            if self._playback_data and 0 <= self._playback_tick < len(self._playback_data):
+                self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
             self._on_start()
 
     def _on_keyboard_signal(self, pid: int, action: str):
@@ -697,7 +768,7 @@ class MainWindow(QMainWindow):
         self.btn_pause.setEnabled(False)
         self._playback_tick = min(tick_actual, len(self._playback_data) - 1)
         if self._playback_data and self._playback_tick >= 0:
-            self._refresh(self._playback_data[self._playback_tick])
+            self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
         # Siempre reanudar después de resolver la interrupción
         self._on_start()
 
@@ -707,9 +778,22 @@ class MainWindow(QMainWindow):
         self._global_timeline.clear()
         self._global_logs.clear()
         
+        # Keep a running state to correctly infer changes from deltas
+        # IMPORTANT: use deepcopy to avoid corrupting snapshot raw data
+        import copy
+        base_state = {}
+        
         for snap in ticks:
             tick_num = snap.get("tick", 0)
-            current_procs = {p["pid"]: p for p in snap.get("process_table", [])}
+            
+            if snap.get("type") == "snapshot":
+                base_state = copy.deepcopy(snap.get("state", {}))
+            elif snap.get("type") == "delta":
+                apply_delta(base_state, copy.deepcopy(snap.get("updates", {})))
+            else:
+                base_state = copy.deepcopy(snap)
+                
+            current_procs = {p["pid"]: p for p in base_state.get("process_table", [])}
             
             # Compatibilidad legacy: el snapshot puede usar "all_processes" en lugar de "process_table"
             if not current_procs and "all_processes" in snap:
@@ -723,7 +807,7 @@ class MainWindow(QMainWindow):
                     # Deducir el núcleo si está en RUNNING
                     core_id = None
                     if state == "RUNNING":
-                        for c in snap.get("cores", []):
+                        for c in base_state.get("cores", []):
                             if c.get("is_busy") and c.get("process", {}).get("pid") == pid:
                                 core_id = c.get("id")
                             elif c.get("status") == "RUNNING" and c.get("current_process") == pid:
@@ -749,8 +833,14 @@ class MainWindow(QMainWindow):
                         
                     prev_states[pid] = state
             
-            snap["timeline_count"] = len(self._global_timeline)
-            snap["log_count"] = len(self._global_logs)
+            # Inject into the raw frame so get_state_at_tick can return them
+            raw_frame = snap  # snap IS the raw frame here (we iterate ticks directly)
+            raw_frame["_timeline_count"] = len(self._global_timeline)
+            raw_frame["_log_count"] = len(self._global_logs)
+
+    def _on_reconfigure(self):
+        self._wants_restart = True
+        self.close()
 
     def _on_load_json(self):
         import json
@@ -769,10 +859,16 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Error", "El archivo no tiene el formato de output_modelo válido.")
                 return
                 
+            self._static_info = {p["pid"]: p for p in data.get("global_process_info", [])}
             self._playback_data = data["ticks"]
             self._infer_frontend_data(self._playback_data)
             self._playback_mode = True
             self._playback_tick = 0
+            
+            if hasattr(self, "spin_jump"):
+                self.spin_jump.setEnabled(True)
+                self.spin_jump.setRange(0, len(self._playback_data) - 1)
+                self.spin_jump.setValue(0)
             
             # Deshabilitar controles del motor
             self.btn_new.setEnabled(False)
@@ -784,7 +880,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Cargado", f"Se cargaron {len(self._playback_data)} fotogramas de simulación. Presiona Iniciar para reproducir.")
             
             # Mostrar tick 0
-            self._refresh(self._playback_data[0])
+            if self._playback_data:
+                self._refresh(get_state_at_tick(self._playback_data, 0, self._static_info))
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Fallo al cargar el archivo:\n{e}")
@@ -792,12 +889,208 @@ class MainWindow(QMainWindow):
     def _on_tick(self, tick: int):
         """Callback del clock: avanzar un fotograma en la reproducción."""
         if self._playback_mode and self._playback_data:
-            if self._playback_tick < len(self._playback_data):
-                snap = self._playback_data[self._playback_tick]
+            if 0 <= self._playback_tick < len(self._playback_data):
+                snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
                 self._refresh(snap)
+                
+                self.spin_jump.blockSignals(True)
+                self.spin_jump.setValue(self._playback_tick)
+                self.spin_jump.blockSignals(False)
+                
                 self._playback_tick += 1
             else:
                 self._on_pause()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Exportación de reporte
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _on_export_report(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
+        from PySide6.QtCore import QCoreApplication
+        from simulation.paths import ESCENARIO_PATH, SIMULATOR_EXE, BACKEND_DIR
+        import os
+        import json
+        import copy
+        import subprocess
+        import time
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Exportar Benchmark de Memoria", "benchmark_memoria.pdf", "Archivos PDF (*.pdf)"
+        )
+        if not filepath:
+            return
+            
+        if not os.path.exists(ESCENARIO_PATH):
+            QMessageBox.critical(self, "Error", f"No se encontró el escenario base en: {ESCENARIO_PATH}")
+            return
+            
+        with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
+            base_scenario = json.load(f)
+            
+        original_mode = base_scenario.get("hardware", {}).get("memory", {}).get("mode", "UNKNOWN")
+        
+        # Forzar modo CONTIGUOUS y aumentar memoria y procesos si es muy pequeño para estrés
+        base_scenario["hardware"]["memory"]["mode"] = "CONTIGUOUS"
+        if base_scenario["hardware"]["memory"].get("totalMB", 0) < 512:
+            base_scenario["hardware"]["memory"]["totalMB"] = 512
+            base_scenario["hardware"]["memory"]["osReservedMB"] = 32
+            
+        if len(base_scenario.get("processes", [])) < 20:
+            import random
+            base_procs = copy.deepcopy(base_scenario.get("processes", []))
+            if base_procs:
+                for i in range(15):
+                    p = copy.deepcopy(base_procs[i % len(base_procs)])
+                    p["name"] = f"App_{len(base_scenario.get('processes', [])) + 1}"
+                    p["arrival_tick"] = random.randint(0, 20)
+                    p["memory_size"] = random.randint(10, 60)
+                    p["burst_time"] = random.randint(5, 15)
+                    base_scenario["processes"].append(p)
+        
+        strategies = ["FIRST_FIT", "BEST_FIT", "WORST_FIT"]
+        results = {}
+        
+        progress = QProgressDialog("Corriendo Benchmark de Asignación de Memoria...", "Cancelar", 0, len(strategies), self)
+        progress.setWindowTitle("Generando Reporte")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.show()
+        
+        for idx, strategy in enumerate(strategies):
+            if progress.wasCanceled():
+                return
+            progress.setLabelText(f"Evaluando estrategia {strategy}...")
+            progress.setValue(idx)
+            
+            scenario = copy.deepcopy(base_scenario)
+            scenario["hardware"]["memory"]["allocationStrategy"] = strategy
+            
+            temp_input = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_input_{strategy}.json")
+            temp_output = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_output_{strategy}.json")
+            
+            with open(temp_input, "w", encoding="utf-8") as f:
+                json.dump(scenario, f, indent=2)
+                
+            try:
+                process = subprocess.Popen(
+                    [SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"],
+                    cwd=BACKEND_DIR
+                )
+                while process.poll() is None:
+                    QCoreApplication.processEvents()
+                    time.sleep(0.05)
+            except Exception as e:
+                QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar {strategy}:\n{e}")
+                progress.close()
+                return
+                
+            if os.path.exists(temp_output):
+                with open(temp_output, "r", encoding="utf-8") as f:
+                    try:
+                        output_data = json.load(f)
+                        if output_data and "ticks" in output_data:
+                            ticks_data = output_data["ticks"]
+                            last_snap = None
+                            for frame in reversed(ticks_data):
+                                if frame.get("type") == "snapshot":
+                                    last_snap = frame.get("state", frame)
+                                    break
+                                elif "type" not in frame: # legacy
+                                    last_snap = frame
+                                    break
+                            if last_snap and "metrics" in last_snap:
+                                results[strategy] = last_snap["metrics"]
+                    except:
+                        pass
+                        
+            try:
+                os.remove(temp_input)
+                os.remove(temp_output)
+            except:
+                pass
+                
+        progress.setValue(len(strategies))
+        progress.close()
+        
+        # ── Escribir el reporte en PDF usando QTextDocument ──
+        try:
+            from PySide6.QtGui import QTextDocument, QPdfWriter
+            
+            html = "<h1>Memory Allocation Strategies Benchmark Report</h1>"
+            if original_mode == "PAGED":
+                html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
+                html += "<b>NOTA:</b> El escenario base actualmente cargado usaba <b>Memoria Paginada (PAGED)</b>. "
+                html += "Para realizar esta comparativa de estrategias de asignación, el benchmark forzó internamente el modo a <b>CONTIGUA</b> en estas corridas.</p>"
+            else:
+                html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
+                html += f"<b>NOTA:</b> El escenario cargado usaba memoria {original_mode}. El reporte compara las 3 estrategias de asignación contigua.</p>"
+                
+            html += "<p>Este reporte compara el rendimiento (<i>performance</i>) y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: <b>FIRST_FIT</b>, <b>BEST_FIT</b>, y <b>WORST_FIT</b>.</p>"
+            
+            # --- Inyectar la configuración del entorno ---
+            cores = len(base_scenario.get("hardware", {}).get("cpu", {}).get("cores", [1]))
+            algo = base_scenario.get("hardware", {}).get("cpu", {}).get("scheduler", "FCFS")
+            ram = base_scenario.get("hardware", {}).get("memory", {}).get("totalMB", 0)
+            n_procs = len(base_scenario.get("processes", []))
+            
+            html += "<h2>Configuración de Simulación</h2>"
+            html += "<ul>"
+            html += f"<li><b>CPU:</b> {cores} Núcleo(s), Algoritmo: {algo}</li>"
+            html += f"<li><b>Memoria:</b> {ram} MB Totales, Modo: Contiguo</li>"
+            html += f"<li><b>Carga:</b> {n_procs} Procesos evaluados</li>"
+            html += "</ul>"
+            
+            html += "<h2>Resultados</h2>"
+            html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
+            
+            best_frag_val = float('inf')
+            best_frag_strat = ""
+            best_perf_val = float('inf')
+            best_perf_strat = ""
+            
+            for strategy in strategies:
+                m = results.get(strategy)
+                if not m:
+                    html += f"<tr><td>{strategy}</td><td colspan='5'>N/A</td></tr>"
+                    continue
+                    
+                ext_frag = m.get("external_fragmentation_mb", 0)
+                ctx_sw = m.get("context_switches", 0)
+                avg_turn = m.get("avg_turnaround_time", 0)
+                avg_wait = m.get("avg_waiting_time", 0)
+                avg_resp = m.get("avg_response_time", 0)
+                
+                html += f"<tr><td>{strategy}</td><td>{ext_frag} MB</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
+                
+                if ext_frag < best_frag_val:
+                    best_frag_val = ext_frag
+                    best_frag_strat = strategy
+                    
+                if avg_turn < best_perf_val:
+                    best_perf_val = avg_turn
+                    best_perf_strat = strategy
+                    
+            html += "</table>"
+            
+            html += "<h2>Conclusiones</h2><ul>"
+            if best_frag_strat:
+                html += f"<li><b>Optimización de Fraccionamiento:</b> La estrategia <b>{best_frag_strat}</b> resultó ser la más eficiente, presentando una menor fragmentación externa.</li>"
+            if best_perf_strat:
+                html += f"<li><b>Rendimiento (Performance):</b> La estrategia <b>{best_perf_strat}</b> demostró ser la más eficiente en términos de rendimiento (menor Turnaround promedio), al asignar más rápido la memoria.</li>"
+            html += "</ul>"
+            
+            # Generar PDF
+            doc = QTextDocument()
+            doc.setHtml(html)
+            
+            pdf_writer = QPdfWriter(filepath)
+            pdf_writer.setResolution(150)
+            doc.print_(pdf_writer)
+            
+            QMessageBox.information(self, "Reporte Exportado", f"El Benchmark de Memoria fue exportado a PDF exitosamente en:\n{filepath}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error al Guardar", f"No se pudo guardar el reporte:\n{e}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Refresco de UI
@@ -808,12 +1101,37 @@ class MainWindow(QMainWindow):
         if snap is None:
             return
 
+        raw_frame = snap.get("_raw_frame", snap)
+        log_count = raw_frame.get("_log_count", raw_frame.get("log_count", len(self._global_logs)))
+
         # ── CPU Cores ────────────────────────────────────────────────────────
         self.cpu_widget.update(snap["cores"])
 
-        # ── Memory — support both new nested format and legacy flat format ───
+        # ── Memory — support PAGED, CONTIGUOUS and legacy flat formats ─────────
         mem_block = snap.get("memory")
-        if isinstance(mem_block, dict) and "blocks" in mem_block:
+        mmu_dict = {}
+        if isinstance(mem_block, dict) and mem_block.get("type") == "PAGED":
+            # Modo paginado: pasar el dict completo al widget; construir mem_stats para statusbar
+            mem_segments = mem_block   # memory_widget.update() detecta type==PAGED
+            proc_frames = mem_block.get("process_frames", [])
+            total_frames = mem_block.get("total_frames", 0)
+            os_pages = mem_block.get("os_reserved_frames", 0)
+            
+            used_pages = len(proc_frames)
+            free_pages = total_frames - os_pages - used_pages
+            
+            total_mb   = round(total_frames * 4.0 / 1024.0, 1)
+            used_mb    = round(used_pages  * 4.0 / 1024.0, 3)
+            free_mb    = round(free_pages  * 4.0 / 1024.0, 3)
+            mem_stats  = {
+                "total_mb": total_mb,
+                "used_mb":  used_mb,
+                "free_mb":  free_mb,
+                "fragmentation": 0.0,
+                "fragmentation_percent": 0.0,
+                "strategy": "VM Paginada",
+            }
+        elif isinstance(mem_block, dict) and "blocks" in mem_block:
             mem_segments = mem_block["blocks"]
             mem_stats    = mem_block.get("stats", snap.get("memory_stats", {}))
             mmu_raw      = mem_block.get("mmu_table", [])
@@ -826,20 +1144,21 @@ class MainWindow(QMainWindow):
             # Legacy: la memoria era una lista de objetos MemorySegment o diccionarios raw
             mem_segments = mem_block if isinstance(mem_block, list) else snap.get("memory_stats", {})
             mem_stats    = snap.get("memory_stats", {})
-            mmu_dict     = snap.get("mmu_table", {})
             
-        # Overrides visuales desde escenario_modelo.json (Mockup)
-        if self._live_config and "hardware" in self._live_config:
+        # Overrides visuales desde escenario_modelo.json (solo aplican a modo CONTIGUOUS)
+        if self._live_config and "hardware" in self._live_config and isinstance(mem_block, dict) and mem_block.get("type") != "PAGED":
             hw = self._live_config["hardware"]
             mem_cfg = hw.get("memory", {})
             if not mem_cfg.get("mmuEnabled", True):
                 mmu_dict = {}  # Ocultar MMU si se deshabilitó
-            if "totalMB" in mem_cfg:
+            if "totalMB" in mem_cfg and "total_mb" not in mem_stats:
                 mem_stats["total_mb"] = mem_cfg["totalMB"]
             if "allocationStrategy" in mem_cfg:
                 mem_stats["strategy"] = mem_cfg["allocationStrategy"]
                 
-        self.memory_widget.update(mem_segments, mem_stats, mmu_dict)
+        current_logs = self._global_logs[:log_count]
+        self.memory_widget.update(mem_segments, mem_stats, mmu_dict, current_logs)
+
 
         # ── Queues ───────────────────────────────────────────────────────────
         self.queue_widget.update(snap["ready_queues"], snap["waiting"])
@@ -860,13 +1179,17 @@ class MainWindow(QMainWindow):
                 self.clock.pause()
                 self.btn_start.setEnabled(False)   # bloquea reanudar hasta resolver
                 self.btn_pause.setEnabled(False)
+                self.tabs.setCurrentIndex(2)       # <--- AUTO NAVEGACIÓN A I/O
                 break
 
         # ── Metrics ──────────────────────────────────────────────────────────
         self.metrics_widget.update(snap["metrics"])
 
-        # ── Timeline — support both list-of-dicts (new) and list-of-tuples (legacy) ──
-        timeline_count = snap.get("timeline_count", 0)
+        # ── Timeline — use _timeline_count injected into raw frame ──────────
+        # We need the raw frame's _timeline_count, not the reconstructed state
+        raw_frame = self._playback_data[self._playback_tick - 1] if self._playback_tick > 0 else (self._playback_data[0] if self._playback_data else {})
+        timeline_count = raw_frame.get("_timeline_count", raw_frame.get("timeline_count", len(self._global_timeline)))
+        log_count = raw_frame.get("_log_count", raw_frame.get("log_count", len(self._global_logs)))
         timeline_raw = self._global_timeline[:timeline_count]
         
         # Formato legacy fallback (si alguna vez se inyecta legacy directo)
@@ -878,8 +1201,8 @@ class MainWindow(QMainWindow):
         else:
             timeline_dicts = timeline_raw
             
-        self.timeline_widget.update(timeline_dicts, len(snap["cores"]))
-
+        self.timeline_widget.update(timeline_dicts, len(snap.get("cores", [])))
+        self.gantt_widget.update_gantt(timeline_dicts, snap.get("tick", 0))
         # ── Log: primero logs directos del motor C++, si no los inferidos ────
         console_logs = snap.get("console_logs", [])
         if console_logs:
@@ -887,7 +1210,6 @@ class MainWindow(QMainWindow):
             self.log_widget.append_messages(console_logs)
         else:
             # Fallback: logs inferidos de cambios de estado
-            log_count = snap.get("log_count", 0)
             new_msgs = self._global_logs[self._log_offset:log_count]
             if new_msgs:
                 self.log_widget.append_messages(new_msgs)
@@ -906,9 +1228,20 @@ class MainWindow(QMainWindow):
         used = m.get('used_mb', 0)
         total = m.get('total_mb', 1)
         usage_pct = m.get('usage_pct', round((used / total) * 100, 1) if total else 0)
+        frag_val = m.get('fragmentation', m.get('fragmentation_percent', 0))
         
-        self.sb_mem.setText(f"  RAM: {usage_pct}%")
-        self.sb_frag.setText(f"  Frag: {m.get('fragmentation', m.get('fragmentation_percent', 0))}%")
+        try:
+            ram_str = f"{float(usage_pct):.1f}"
+        except:
+            ram_str = str(usage_pct)
+            
+        try:
+            frag_str = f"{float(frag_val):.1f}"
+        except:
+            frag_str = str(frag_val)
+        
+        self.sb_mem.setText(f"  RAM: {ram_str}%")
+        self.sb_frag.setText(f"  Frag: {frag_str}%")
         self.sb_ctx.setText(f"  CTX: {ctx_switches}")
 
 
@@ -919,7 +1252,6 @@ class MainWindow(QMainWindow):
 class _NewProcessDialog(QDialog):
     def __init__(self, current_tick: int, parent=None):
         super().__init__(parent)
-        self._update_playback_buttons(running=False)  # estado inicial: parado
         self.setWindowTitle("Añadir Proceso al Escenario")
         self.setModal(True)
         self.setFixedSize(360, 290)
@@ -938,8 +1270,8 @@ class _NewProcessDialog(QDialog):
         row(0, "Nombre:", self.edit_name)
 
         self.spin_burst = QSpinBox()
-        self.spin_burst.setRange(3, 100)
-        self.spin_burst.setValue(20)
+        self.spin_burst.setRange(5, 20)
+        self.spin_burst.setValue(15)
         row(1, "Burst (ticks):", self.spin_burst)
 
         self.spin_prio = QSpinBox()

@@ -56,8 +56,8 @@ class ManualProcessRow(QWidget):
         layout.addWidget(self.name_edit)
 
         self.burst = QSpinBox()
-        self.burst.setRange(3, 100)
-        self.burst.setValue(20)
+        self.burst.setRange(5, 20)
+        self.burst.setValue(15)
         self.burst.setFixedWidth(80)
         layout.addWidget(self.burst)
 
@@ -102,6 +102,8 @@ class ConfigDialog(QDialog):
 
         self._manual_rows: List[ManualProcessRow] = []
         self._setup_ui()
+        # Inicializar el label de memoria correctamente
+        self._update_mem_label(self.spin_mem.value())
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
@@ -149,9 +151,13 @@ class ConfigDialog(QDialog):
         btn_start.setFixedHeight(36)
         btn_start.clicked.connect(self._generate_and_view)
 
+        btn_load = QPushButton("📂  Cargar JSON")
+        btn_load.clicked.connect(self._load_prefabricated)
+
         btn_row.addWidget(btn_cancel)
         btn_row.addWidget(btn_defaults)
         btn_row.addWidget(btn_export)
+        btn_row.addWidget(btn_load)
         btn_row.addStretch()
         btn_row.addWidget(btn_start)
         root.addLayout(btn_row)
@@ -214,33 +220,44 @@ class ConfigDialog(QDialog):
         g.setSpacing(10)
         g.setContentsMargins(12, 12, 12, 12)
 
-        g.addWidget(_lbl("Memoria total (MB):"), 0, 0)
+        g.addWidget(_lbl("Memoria RAM total (MB):"), 0, 0)
         self.spin_mem = QSpinBox()
-        self.spin_mem.setRange(128, 4096)
+        self.spin_mem.setRange(8, 4096)
         self.spin_mem.setValue(1024)
-        self.spin_mem.setSingleStep(128)
+        self.spin_mem.setSingleStep(4)
         self.spin_mem.setFixedWidth(90)
         self.spin_mem.valueChanged.connect(self._update_mem_label)
         g.addWidget(self.spin_mem, 0, 1)
 
-        self.lbl_mem_total = _lbl("(1024 MB disponibles)", Colors.ACCENT_LIGHT)
+        self.lbl_mem_total = _lbl("", Colors.ACCENT_LIGHT)
         g.addWidget(self.lbl_mem_total, 0, 2)
 
-        g.addWidget(_lbl("Tamaño mínimo de segmento (MB):"), 1, 0)
+        # Mode
+        self.chk_paged = QCheckBox("Habilitar Modo Paginado (4KB)")
+        self.chk_paged.setChecked(False)
+        self.chk_paged.toggled.connect(self._on_paged_toggled)
+        g.addWidget(self.chk_paged, 1, 0, 1, 3)
+
+        # Contiguous Params Frame
+        self.frame_contig = QFrame()
+        g_contig = QGridLayout(self.frame_contig)
+        g_contig.setContentsMargins(0,0,0,0)
+        
+        g_contig.addWidget(_lbl("Tamaño mínimo de segmento (MB):"), 0, 0)
         self.spin_min_seg = QSpinBox()
         self.spin_min_seg.setRange(1, 64)
         self.spin_min_seg.setValue(4)
         self.spin_min_seg.setFixedWidth(70)
-        g.addWidget(self.spin_min_seg, 1, 1)
+        g_contig.addWidget(self.spin_min_seg, 0, 1)
 
-        g.addWidget(_lbl("Tamaño máximo de proceso (MB):"), 2, 0)
+        g_contig.addWidget(_lbl("Tamaño máximo de proceso (MB):"), 1, 0)
         self.spin_max_proc = QSpinBox()
         self.spin_max_proc.setRange(8, 1024)
-        self.spin_max_proc.setValue(256)
+        self.spin_max_proc.setValue(512)
         self.spin_max_proc.setFixedWidth(90)
-        g.addWidget(self.spin_max_proc, 2, 1)
+        g_contig.addWidget(self.spin_max_proc, 1, 1)
 
-        g.addWidget(_lbl("Estrategia de asignación:"), 3, 0)
+        g_contig.addWidget(_lbl("Estrategia de asignación:"), 2, 0)
         self.combo_alloc = QComboBox()
         self.combo_alloc.addItems([
             "First Fit — primer hueco libre suficiente",
@@ -248,27 +265,56 @@ class ConfigDialog(QDialog):
             "Worst Fit — hueco más grande disponible",
         ])
         self.combo_alloc.setFixedWidth(280)
-        g.addWidget(self.combo_alloc, 3, 1, 1, 2)
+        g_contig.addWidget(self.combo_alloc, 2, 1, 1, 2)
+        
+        self.chk_mmu = QCheckBox("Habilitar MMU abstracta (Segmentación)")
+        self.chk_mmu.setChecked(True)
+        g_contig.addWidget(self.chk_mmu, 3, 0, 1, 3)
+        g.addWidget(self.frame_contig, 2, 0, 1, 3)
 
-        self.chk_mmu = QCheckBox("Habilitar MMU simulada (traducción lógico→físico)")
-        self.chk_mmu.setChecked(False)
-        g.addWidget(self.chk_mmu, 4, 0, 1, 3)
-
-        mmu_note = _lbl(
-            "⚠️  Memoria Virtual (paginación): disponible en versión futura. "
-            "La arquitectura actual soporta el upgrade sin cambiar el engine.",
-            Colors.TEXT_MUTED, 8
-        )
-        mmu_note.setWordWrap(True)
-        g.addWidget(mmu_note, 5, 0, 1, 3)
+        # Paged Params Frame
+        self.frame_paged = QFrame()
+        g_paged = QGridLayout(self.frame_paged)
+        g_paged.setContentsMargins(0,0,0,0)
+        
+        g_paged.addWidget(_lbl("Tipo de Tabla de Páginas:"), 0, 0)
+        self.combo_pt = QComboBox()
+        self.combo_pt.addItems(["SINGLE_LEVEL", "TWO_LEVEL", "INVERTED", "HASHED"])
+        g_paged.addWidget(self.combo_pt, 0, 1)
+        
+        g_paged.addWidget(_lbl("Algoritmo de Reemplazo:"), 1, 0)
+        self.combo_repl = QComboBox()
+        self.combo_repl.addItems(["NRU", "FIFO", "SECOND_CHANCE", "CLOCK", "LRU", "NFU", "AGING", "WORKING_SET", "WSCLOCK"])
+        g_paged.addWidget(self.combo_repl, 1, 1)
+        
+        g_paged.addWidget(_lbl("Tipo de Swap:"), 2, 0)
+        self.combo_swap_type = QComboBox()
+        self.combo_swap_type.addItems(["HDD", "SSD"])
+        g_paged.addWidget(self.combo_swap_type, 2, 1)
+        
+        g_paged.addWidget(_lbl("Tamaño Swap (MB):"), 3, 0)
+        self.spin_swap = QSpinBox()
+        self.spin_swap.setRange(16, 8192)
+        self.spin_swap.setValue(64)
+        self.spin_swap.setSingleStep(16)
+        g_paged.addWidget(self.spin_swap, 3, 1)
+        
+        g_paged.addWidget(_lbl("Entradas TLB:"), 4, 0)
+        self.spin_tlb = QSpinBox()
+        self.spin_tlb.setRange(4, 256)
+        self.spin_tlb.setValue(16)
+        g_paged.addWidget(self.spin_tlb, 4, 1)
+        
+        g.addWidget(self.frame_paged, 3, 0, 1, 3)
+        self.frame_paged.setVisible(False)
 
         g.addWidget(_hint(
-            "Menos RAM → más fragmentación → procesos rechazados por falta de espacio. "
-            "First Fit es más rápido. Best Fit minimiza desperdicio interno. "
-            "Worst Fit preserva bloques grandes para procesos futuros."
-        ), 6, 0, 1, 3)
+            "En Modo Contiguo, la memoria se gestiona por bloques y puede haber fragmentación externa. "
+            "En Modo Paginado, todo se gestiona en páginas de 4KB con Memoria Virtual y Swap, eliminando la "
+            "fragmentación externa e implementando reemplazo de páginas."
+        ), 4, 0, 1, 3)
 
-        g.setRowStretch(7, 1)
+        g.setRowStretch(5, 1)
         return w
 
     def _tab_devices(self) -> QWidget:
@@ -504,14 +550,33 @@ class ConfigDialog(QDialog):
         else:
             self.chk_preemptive.setEnabled(True)
 
+    def _on_paged_toggled(self, checked: bool):
+        self.frame_contig.setVisible(not checked)
+        self.frame_paged.setVisible(checked)
+        if checked:
+            self.spin_mem.setValue(12)
+        else:
+            self.spin_mem.setValue(1024)
+            
+        # Reajustar automáticamente los tamaños de memoria si coinciden con los por defecto
+        for row in self._manual_rows:
+            name = row.name_edit.text()
+            for def_name, _, _, mem_contig, mem_paged, _ in self._DEFAULT_PROCS:
+                if name == def_name:
+                    row.memory.setValue(mem_paged if checked else mem_contig)
+                    break
+
     def _toggle_proc_mode(self):
         sys = self.radio_sys.isChecked()
         self.sys_widget.setVisible(sys)
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        avail = val - 64  # OS reservation
+        os_reserved = min(64, max(2, val // 4))
+        avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
+        if hasattr(self, 'spin_max_proc'):
+            self.spin_max_proc.setMaximum(val)
 
     def _update_speed_label(self, val: int):
         labels = ["Lento (2000 ms)", "Normal (800 ms)", "Rápido (250 ms)", "Turbo (80 ms)"]
@@ -519,36 +584,43 @@ class ConfigDialog(QDialog):
 
     # Definiciones de procesos manuales predeterminadas de 20
     _DEFAULT_PROCS = [
-        ("Sistema",    10, 0, 16,  "SYSTEM"),
-        ("Kernel",      8, 0, 12,  "SYSTEM"),
-        ("svchost",    15, 1, 24,  "SYSTEM"),
-        ("Explorador", 30, 3, 48,  "INTERACTIVE"),
-        ("Navegador",  45, 2, 128, "INTERACTIVE"),
-        ("Editor",     25, 3, 64,  "CPU_BOUND"),
-        ("Compilador", 80, 4, 96,  "CPU_BOUND"),
-        ("Database",   20, 2, 80,  "IO_BOUND"),
-        ("Servidor",   60, 2, 64,  "IO_BOUND"),
-        ("Logger",     12, 5, 8,   "IO_BOUND"),
-        ("Antivirus",  40, 4, 32,  "CPU_BOUND"),
-        ("Backup",     90, 6, 48,  "IO_BOUND"),
-        ("Player",     35, 3, 96,  "INTERACTIVE"),
-        ("Terminal",   18, 2, 16,  "INTERACTIVE"),
-        ("Updater",    50, 7, 32,  "IO_BOUND"),
-        ("Scheduler",  10, 1, 8,   "SYSTEM"),
-        ("NetworkMgr", 22, 2, 24,  "IO_BOUND"),
-        ("UIServer",   28, 3, 40,  "INTERACTIVE"),
-        ("CryptoSvc",  55, 4, 32,  "CPU_BOUND"),
-        ("MemMgr",      8, 1, 12,  "SYSTEM"),
+        # name, burst, prio, mem_contig, mem_paged, type
+        ("Sistema",    10, 0, 48,  2, "SYSTEM"),
+        ("Kernel",      8, 0, 32,  1, "SYSTEM"),
+        ("svchost",    15, 1, 64,  2, "SYSTEM"),
+        ("Explorador", 18, 3, 150, 4, "INTERACTIVE"),
+        ("Navegador",  20, 2, 450, 6, "INTERACTIVE"),
+        ("Editor",     16, 3, 200, 3, "CPU_BOUND"),
+        ("Compilador", 20, 4, 350, 5, "CPU_BOUND"),
+        ("Database",   20, 2, 500, 6, "IO_BOUND"),
+        ("Servidor",   19, 2, 250, 4, "IO_BOUND"),
+        ("Logger",     12, 5, 24,  1, "IO_BOUND"),
+        ("Antivirus",  17, 4, 180, 3, "CPU_BOUND"),
+        ("Backup",     20, 6, 120, 2, "IO_BOUND"),
+        ("Player",     18, 3, 280, 4, "INTERACTIVE"),
+        ("Terminal",   18, 2, 45,  1, "INTERACTIVE"),
+        ("Updater",    20, 7, 85,  2, "IO_BOUND"),
+        ("Scheduler",  10, 1, 16,  1, "SYSTEM"),
+        ("NetworkMgr", 19, 2, 56,  2, "IO_BOUND"),
+        ("UIServer",   20, 3, 110, 3, "INTERACTIVE"),
+        ("CryptoSvc",  15, 4, 140, 3, "CPU_BOUND"),
+        ("MemMgr",      8, 1, 24,  1, "SYSTEM"),
     ]
 
     def _populate_default_manual_rows(self):
         """Pre-populate the manual list with 20 representative default processes."""
-        for i, (name, burst, prio, mem, ptype) in enumerate(self._DEFAULT_PROCS, start=1):
-            row = ManualProcessRow(i)
+        sys_mem = self.spin_mem.value()
+        cap = max(4, sys_mem // 4)
+        is_paged = self.chk_paged.isChecked()
+        for name, burst, prio, mem_contig, mem_paged, ptype in self._DEFAULT_PROCS:
+            row = ManualProcessRow(len(self._manual_rows) + 1)
             row.name_edit.setText(name)
             row.burst.setValue(burst)
             row.priority.setValue(prio)
-            row.memory.setValue(mem)
+            
+            mem = mem_paged if is_paged else mem_contig
+            row.memory.setValue(min(cap, mem))
+            
             row.ptype.setCurrentText(ptype)
             self._manual_rows.append(row)
             self.rows_layout.insertWidget(self.rows_layout.count(), row)
@@ -575,10 +647,17 @@ class ConfigDialog(QDialog):
         self.spin_ctx_cost.setValue(1)
         self.chk_preemptive.setChecked(True)
         self.spin_mem.setValue(1024)
+        self.chk_paged.setChecked(False)
         self.spin_min_seg.setValue(4)
-        self.spin_max_proc.setValue(256)
+        self.spin_max_proc.setValue(512)
         self.combo_alloc.setCurrentIndex(0)
         self.chk_mmu.setChecked(True)
+        
+        self.combo_pt.setCurrentIndex(0)
+        self.combo_repl.setCurrentIndex(0)
+        self.combo_swap_type.setCurrentIndex(0)
+        self.spin_swap.setValue(64)
+        self.spin_tlb.setValue(16)
         for attr, spin in self._dev_spins.items():
             defaults = {
                 "keyboard_latency": 7, "disk_latency": 15,
@@ -637,6 +716,12 @@ class ConfigDialog(QDialog):
             max_process_mb=self.spin_max_proc.value(),
             alloc_strategy=alloc_map.get(self.combo_alloc.currentIndex(), "first"),
             mmu_enabled=self.chk_mmu.isChecked(),
+            memory_mode="PAGED" if self.chk_paged.isChecked() else "CONTIGUOUS",
+            page_table_type=self.combo_pt.currentText(),
+            replacement_algorithm=self.combo_repl.currentText(),
+            swap_device_type=self.combo_swap_type.currentText(),
+            swap_size_mb=self.spin_swap.value(),
+            tlb_size=self.spin_tlb.value(),
             # Dispositivos
             keyboard_latency=self._dev_spins["keyboard_latency"].value(),
             disk_latency=self._dev_spins["disk_latency"].value(),
@@ -667,7 +752,10 @@ class ConfigDialog(QDialog):
                     info = p.info
                     if info['memory_info'] is None:
                         continue
-                    rss_mb = max(4, min(256, info['memory_info'].rss // (1024 * 1024)))
+                    
+                    sys_mem = self.spin_mem.value()
+                    cap = max(4, sys_mem // 4)
+                    rss_mb = max(4, min(cap, info['memory_info'].rss // (1024 * 1024)))
                     name = (info['name'] or 'proc')[:16]
                     # Heuristic type
                     nl = name.lower()
@@ -704,7 +792,7 @@ class ConfigDialog(QDialog):
 
                     procs.append({
                         'name': name,
-                        'burst_time': random.randint(10, 80),
+                        'burst_time': random.randint(5, 20),
                         'priority': prio,
                         'memory_size': rss_mb,
                         'process_type': ptype,
@@ -727,19 +815,29 @@ class ConfigDialog(QDialog):
             count = self.spin_proc_count.value()
             proc_list = self._get_psutil_processes(count)
             if not proc_list:
-                proc_list = [
-                    {"name": name, "burst_time": burst, "priority": prio,
-                     "memory_size": mem, "process_type": ptype}
-                    for name, burst, prio, mem, ptype in self._DEFAULT_PROCS[:count]
-                ]
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Dependencia faltante", 
+                                    "No se pudo cargar la librería 'psutil' (o no devolvió procesos). "
+                                    "Se generarán procesos por defecto.\\n\\n"
+                                    "Abre tu terminal y ejecuta:\\n"
+                                    "pip install psutil")
+                sys_mem = self.spin_mem.value()
+                cap = max(4, sys_mem // 4)
+                proc_list = []
+                for name, burst, prio, mem, ptype in self._DEFAULT_PROCS[:count]:
+                    scaled_mem = max(4, min(cap, mem))
+                    proc_list.append({
+                        "name": name, "burst_time": burst, "priority": prio,
+                        "memory_size": scaled_mem, "process_type": ptype
+                    })
         else:
             proc_list = manual_procs
 
         import random
-        # Evitar que todos lleguen en el tick 0
+        # Hacer que los procesos lleguen casi al mismo tiempo y duren más para forzar Swap
         for i, p in enumerate(proc_list):
             if "arrival_tick" not in p:
-                p["arrival_tick"] = 0 if i == 0 else random.randint(2, len(proc_list) * 10 + 50)
+                p["arrival_tick"] = random.randint(0, 10)
 
         now = datetime.now()
         data = {
@@ -761,12 +859,18 @@ class ConfigDialog(QDialog):
                     "contextSwitchCostTicks":config.context_switch_cost,
                 },
                 "memory": {
+                    "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         64,
+                    "osReservedMB":         max(2, config.total_memory_mb // 4),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
                     "mmuEnabled":           config.mmu_enabled,
+                    "pageTableType":        config.page_table_type,
+                    "replacementAlgorithm": config.replacement_algorithm,
+                    "swapDeviceType":       config.swap_device_type,
+                    "swapSizeMB":           config.swap_size_mb,
+                    "tlbSize":              config.tlb_size,
                 },
                 "ioDevices": [
                     {"id": "KEYBOARD", "latency": config.keyboard_latency},
@@ -811,22 +915,27 @@ class ConfigDialog(QDialog):
             f"Se generó input.json con {n} procesos {src}."
         )
 
-    def _generate_and_view(self):
-        import json
+    def _load_prefabricated(self):
+        import shutil
+        from PySide6.QtWidgets import QFileDialog
+        from simulation.paths import ESCENARIO_PATH
+        
+        filepath, _ = QFileDialog.getOpenFileName(self, "Cargar Escenario JSON", "", "JSON Files (*.json)")
+        if not filepath:
+            return
+            
+        try:
+            shutil.copy2(filepath, ESCENARIO_PATH)
+            self._run_backend_and_accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo cargar el archivo: {e}")
+
+    def _run_backend_and_accept(self):
         import subprocess
         import time
         from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import QCoreApplication
-        from simulation.paths import ESCENARIO_PATH, BACKEND_DIR, SIMULATOR_EXE
-
-        if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
-            QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
-            return
-
-        # 1. Save input
-        data = self._build_scenario_json()
-        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        from simulation.paths import BACKEND_DIR, SIMULATOR_EXE
 
         # 2. Llamada al Backend de C++
         progress = QProgressDialog("Esperando respuesta del motor C++...", None, 0, 0, self)
@@ -862,3 +971,18 @@ class ConfigDialog(QDialog):
         
         # 3. Accept dialog (main.py will then open the player)
         self.accept()
+
+    def _generate_and_view(self):
+        import json
+        from simulation.paths import ESCENARIO_PATH
+
+        if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
+            QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
+            return
+
+        # 1. Save input
+        data = self._build_scenario_json()
+        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        self._run_backend_and_accept()

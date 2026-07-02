@@ -13,6 +13,8 @@ struct IORequest {
     std::string processName;
     int ticksRemaining;
     int totalTicks;
+    std::string parameters = "";
+    IOErrorCode errorCode = IOErrorCode::NONE;
 };
 
 // ─── IO Device ───────────────────────────────────────────────────────────────
@@ -46,7 +48,7 @@ public:
 
     // Enqueue an IO request for a process on a given device.
     // Returns false if the device id is not found.
-    bool requestIO(int pid, const std::string& processName, const std::string& deviceId);
+    bool requestIO(int pid, const std::string& processName, const std::string& deviceId, const std::string& params = "");
 
     // Cancel any pending IO for a process (used for CANCEL events).
     void cancelIO(int pid);
@@ -56,9 +58,9 @@ public:
     void tick(std::function<void(int pid, const std::string& deviceId)> onComplete);
 
     // Generate a random IO interruption for a process on a random device
-    // (between minDuration and maxDuration ticks).
-    bool randomInterrupt(int pid, const std::string& processName,
-                         int minDuration, int maxDuration);
+    // (between minDuration and maxDuration ticks). Returns device ID or empty if failed.
+    std::string randomInterrupt(int pid, const std::string& processName,
+                         int minDuration, int maxDuration, const std::string& params = "");
 
     const std::vector<IODevice>& devices() const { return devices_; }
     std::vector<IODevice>&       devices()       { return devices_; }

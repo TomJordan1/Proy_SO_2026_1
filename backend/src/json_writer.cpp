@@ -60,9 +60,6 @@ json JsonWriter::serializeReadyQueue(const std::deque<PCB*>& q) const {
     for (const PCB* p : q) {
         json entry;
         entry["pid"]          = p->pid;
-        entry["name"]         = p->name;
-        entry["type"]         = processTypeLabel(p->type);
-        entry["priority"]     = p->priority;
         entry["waiting_time"] = p->waitingTime;
         entry["waiting"]      = p->waitingTime;
         entry["remaining"]    = p->remainingTime;
@@ -77,9 +74,6 @@ json JsonWriter::serializeWaiting(const std::vector<PCB*>& waiting) const {
     for (const PCB* p : waiting) {
         json entry;
         entry["pid"]        = p->pid;
-        entry["name"]       = p->name;
-        entry["type"]       = processTypeLabel(p->type);
-        entry["priority"]   = p->priority;
         entry["io_device"]  = p->ioDevice.has_value() ? json(p->ioDevice.value()) : json(nullptr);
         arr.push_back(entry);
     }
@@ -88,6 +82,27 @@ json JsonWriter::serializeWaiting(const std::vector<PCB*>& waiting) const {
 
 // ─── serializeProcessTable ───────────────────────────────────────────────────
 json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
+    if (!globalInfoWritten_) {
+        json staticArr = json::array();
+        for (const PCB* p : table) {
+            json s;
+            s["pid"] = p->pid;
+            s["name"] = p->name;
+            s["type"] = processTypeLabel(p->type);
+            s["type_label"] = processTypeLabel(p->type);
+            s["process_type"] = processTypeToString(p->type);
+            s["priority"] = p->priority;
+            s["burst_time"] = p->burstTime;
+            s["memory_size"] = static_cast<double>(p->memorySizeMB);
+            s["mem_mb"] = static_cast<double>(p->memorySizeMB);
+            s["arrival_tick"] = p->arrivalTick;
+            s["memory_base_address"] = p->memoryBaseAddress;
+            staticArr.push_back(s);
+        }
+        const_cast<json&>(output_)["global_process_info"] = staticArr;
+        globalInfoWritten_ = true;
+    }
+
     json arr = json::array();
     for (const PCB* p : table) {
         if (p->state == ProcessState::TERMINATED && p->isAlive() == false) {
@@ -95,31 +110,26 @@ json JsonWriter::serializeProcessTable(const std::vector<PCB*>& table) const {
         }
         json entry;
         entry["pid"]                = p->pid;
-        entry["name"]               = p->name;
-        entry["type"]               = processTypeLabel(p->type);
-        entry["type_label"]         = processTypeLabel(p->type);
-        entry["process_type"]       = processTypeToString(p->type);
         entry["state"]              = stateToString(p->state);
-        entry["priority"]           = p->priority;
-        entry["burst_time"]         = p->burstTime;
         entry["remaining_time"]     = p->remainingTime;
         entry["waiting_time"]       = p->waitingTime;
         entry["program_counter"]    = p->pc;
         entry["pc"]                 = p->pc;
         entry["pc_hex"]             = p->pcHex();
-        entry["memory_size"]        = static_cast<double>(p->memorySizeMB);
-        entry["mem_mb"]             = static_cast<double>(p->memorySizeMB);
         entry["completion_percent"] = p->completionPercent();
         entry["completion"]         = p->completionPercent();
         entry["cpu_id"]             = p->cpuId.has_value() ? json(p->cpuId.value()) : json(nullptr);
-        entry["memory_base_address"]= p->memoryBaseAddress;
         entry["io_device"]          = p->ioDevice.has_value() ? json(p->ioDevice.value()) : json(nullptr);
-        entry["arrival_tick"]       = p->arrivalTick;
         entry["response_time"]      = p->responseTime;
         entry["turnaround_time"]    = p->turnaround;
         if (p->errorCode != ErrorCode::NONE) {
             entry["error_code"] = errorCodeToString(p->errorCode);
         }
+        entry["interrupt_count"]    = p->interruptCount;
+        entry["interrupt_history"]  = p->interruptHistory;
+        entry["parent_pid"]         = p->parentPid.has_value() ? json(p->parentPid.value()) : json(nullptr);
+        entry["children_pids"]      = p->childrenPids;
+        entry["memory_base"]        = p->memoryBaseAddress;
         arr.push_back(entry);
     }
     return arr;
@@ -167,6 +177,68 @@ json JsonWriter::serializeMemory(const MemoryManager& mem) const {
     return j;
 }
 
+// ─── serializePagedMemory ────────────────────────────────────────────────────
+json JsonWriter::serializePagedMemory(const PagedMemoryManager& mem) const {
+    json j;
+    
+    const auto& ft = mem.getFrameTable();
+    j["total_frames"] = ft.getTotalFrames();
+    j["os_reserved_frames"] = ft.getOsReservedFrames();
+
+    // Process Frames (sparse) - ONLY write if changed!
+    size_t currentHash = 0;
+    for (const auto& f : ft.getFrames()) {
+        if (!f.isFree && f.segmentType != SegmentType::OS) {
+            currentHash ^= std::hash<int>()(f.index) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
+            currentHash ^= std::hash<int>()(f.pid.value_or(-1)) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
+            currentHash ^= std::hash<int>()(f.vpn) + 0x9e3779b9 + (currentHash << 6) + (currentHash >> 2);
+        }
+    }
+
+    if (currentHash != lastProcessFramesHash_ || lastProcessFramesHash_ == 0) {
+        json framesArr = json::array();
+        for (const auto& f : ft.getFrames()) {
+            if (!f.isFree && f.segmentType != SegmentType::OS) {
+                json fObj;
+                fObj["index"] = f.index;
+                fObj["is_free"] = f.isFree;
+                fObj["pid"] = f.pid.has_value() ? json(f.pid.value()) : json(nullptr);
+                fObj["vpn"] = f.vpn;
+                fObj["segment_type"] = segmentTypeToString(f.segmentType);
+                framesArr.push_back(fObj);
+            }
+        }
+        j["process_frames"] = framesArr;
+        lastProcessFramesHash_ = currentHash;
+    }
+    // else: omit "process_frames" completely to save space
+    // Swap Stats
+    const auto& sm = mem.getSwapManager();
+    j["swap"] = {
+        {"max_pages", sm.getMaxPages()},
+        {"used_pages", sm.getUsedPages()}
+    };
+    
+    // TLB
+    json tlbArr = json::array();
+    // Non-const cast to get TLB for metrics output, or just use const if added
+    auto tlb = const_cast<PagedMemoryManager&>(mem).getTLB();
+    for (const auto& entry : tlb.getEntries()) {
+        json tObj;
+        tObj["pid"] = entry.pid;
+        tObj["vpn"] = entry.vpn;
+        tObj["frame_number"] = entry.frameNumber;
+        tlbArr.push_back(tObj);
+    }
+    j["tlb"] = {
+        {"hits", tlb.getHits()},
+        {"misses", tlb.getMisses()},
+        {"entries", tlbArr}
+    };
+    
+    return j;
+}
+
 // ─── serializeIODevices ──────────────────────────────────────────────────────
 json JsonWriter::serializeIODevices(const IOManager& io) const {
     json arr = json::array();
@@ -179,6 +251,10 @@ json JsonWriter::serializeIODevices(const IOManager& io) const {
         d["current_name"]    = (dev.current.has_value()) ? json(dev.current->processName) : json(nullptr);
         d["progress_percent"]= dev.progressPercent();
         d["queue_pids"]      = dev.queuePids();
+        d["parameters"]      = (dev.current.has_value()) ? json(dev.current->parameters) : json(nullptr);
+        if (dev.current.has_value() && dev.current->errorCode != IOErrorCode::NONE) {
+            d["error_code"]  = ioErrorCodeToString(dev.current->errorCode);
+        }
         arr.push_back(d);
     }
     return arr;
@@ -201,51 +277,124 @@ json JsonWriter::serializeMetrics(const TickSnapshot& snap) const {
 
 
 
+// ─── computeDelta ────────────────────────────────────────────────────────────
+json JsonWriter::computeDelta(const json& old_state, const json& new_state) const {
+    json delta = json::object();
+    
+    auto computeArrayDelta = [](const json& oldArr, const json& newArr, const std::string& idField) {
+        json arrDelta = json::array();
+        for (const auto& newObj : newArr) {
+            bool found = false;
+            json diffObj = json::object();
+            if (!oldArr.is_null()) {
+                for (const auto& oldObj : oldArr) {
+                    if (oldObj[idField] == newObj[idField]) {
+                        found = true;
+                        for (auto it = newObj.begin(); it != newObj.end(); ++it) {
+                            if (!oldObj.contains(it.key()) || oldObj[it.key()] != it.value()) {
+                                diffObj[it.key()] = it.value();
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                arrDelta.push_back(newObj);
+            } else if (!diffObj.empty()) {
+                diffObj[idField] = newObj[idField];
+                arrDelta.push_back(diffObj);
+            }
+        }
+        return arrDelta;
+    };
+
+    if (new_state.contains("process_table")) {
+        json ptDelta = computeArrayDelta(old_state.contains("process_table") ? old_state["process_table"] : json(nullptr), new_state["process_table"], "pid");
+        if (!ptDelta.empty()) delta["process_table"] = ptDelta;
+    }
+    if (new_state.contains("cores")) {
+        json coresDelta = computeArrayDelta(old_state.contains("cores") ? old_state["cores"] : json(nullptr), new_state["cores"], "id");
+        if (!coresDelta.empty()) delta["cores"] = coresDelta;
+    }
+    if (new_state.contains("io_devices")) {
+        json ioDelta = computeArrayDelta(old_state.contains("io_devices") ? old_state["io_devices"] : json(nullptr), new_state["io_devices"], "name");
+        if (!ioDelta.empty()) delta["io_devices"] = ioDelta;
+    }
+
+    if (new_state.contains("metrics") && (!old_state.contains("metrics") || old_state["metrics"] != new_state["metrics"])) {
+        delta["metrics"] = new_state["metrics"];
+    }
+    if (new_state.contains("memory") && (!old_state.contains("memory") || old_state["memory"] != new_state["memory"])) {
+        delta["memory"] = new_state["memory"];
+    }
+    if (new_state.contains("ready_queues") && (!old_state.contains("ready_queues") || old_state["ready_queues"] != new_state["ready_queues"])) {
+        delta["ready_queues"] = new_state["ready_queues"];
+    }
+    if (new_state.contains("waiting") && (!old_state.contains("waiting") || old_state["waiting"] != new_state["waiting"])) {
+        delta["waiting"] = new_state["waiting"];
+    }
+
+    return delta;
+}
+
 // ─── recordTick ──────────────────────────────────────────────────────────────
 void JsonWriter::recordTick(const TickSnapshot& snap) {
-    json tickObj;
-    tickObj["tick"] = snap.tick;
+    json fullState = json::object();
 
     // Cores
     json coresArr = json::array();
-    for (const auto& c : snap.cores) {
-        coresArr.push_back(serializeCore(c));
-    }
-    tickObj["cores"] = coresArr;
+    for (const auto& c : snap.cores) coresArr.push_back(serializeCore(c));
+    fullState["cores"] = coresArr;
 
-    // Ready queues (array of arrays)
+    // Ready queues
     json rqArr = json::array();
-    for (const auto& q : snap.readyQueues) {
-        rqArr.push_back(serializeReadyQueue(q));
-    }
-    tickObj["ready_queues"] = rqArr;
+    for (const auto& q : snap.readyQueues) rqArr.push_back(serializeReadyQueue(q));
+    fullState["ready_queues"] = rqArr;
 
     // Waiting list
-    tickObj["waiting"] = serializeWaiting(snap.waitingList);
+    fullState["waiting"] = serializeWaiting(snap.waitingList);
 
     // Process table
-    tickObj["process_table"] = serializeProcessTable(snap.processTable);
+    fullState["process_table"] = serializeProcessTable(snap.processTable);
 
     // Memory
-    if (snap.memory) {
-        tickObj["memory"] = serializeMemory(*snap.memory);
+    if (snap.pagedMemory) {
+        fullState["memory"] = serializePagedMemory(*snap.pagedMemory);
+        fullState["memory"]["type"] = "PAGED";
+    } else if (snap.memory) {
+        fullState["memory"] = serializeMemory(*snap.memory);
+        fullState["memory"]["type"] = "CONTIGUOUS";
     }
 
     // IO devices
     if (snap.ioManager) {
-        tickObj["io_devices"] = serializeIODevices(*snap.ioManager);
+        fullState["io_devices"] = serializeIODevices(*snap.ioManager);
     }
 
     // Metrics
-    tickObj["metrics"] = serializeMetrics(snap);
+    fullState["metrics"] = serializeMetrics(snap);
 
+    // Build the final tick object
+    json tickObj = json::object();
+    tickObj["tick"] = snap.tick;
+    
     // Console logs from this tick
     json logsArr = json::array();
-    for (const auto& msg : snap.consoleLogs) {
-        logsArr.push_back(msg);
+    for (const auto& msg : snap.consoleLogs) logsArr.push_back(msg);
+    if (!logsArr.empty()) {
+        tickObj["console_logs"] = logsArr;
     }
-    tickObj["console_logs"] = logsArr;
 
+    if (snap.tick % SNAPSHOT_INTERVAL == 0 || lastTickState_.is_null()) {
+        tickObj["type"] = "snapshot";
+        tickObj["state"] = fullState;
+    } else {
+        tickObj["type"] = "delta";
+        tickObj["updates"] = computeDelta(lastTickState_, fullState);
+    }
+
+    lastTickState_ = fullState;
     output_["ticks"].push_back(tickObj);
 }
 
@@ -273,11 +422,12 @@ bool JsonWriter::write(const std::string& filepath) const {
         root["metadata"]["scheduler"]       = schedulerName_;
         root["metadata"]["total_memory_mb"] = totalMemoryMB_;
         root["metadata"]["num_cpus"]        = numCpus_;
+        root["global_process_info"]         = output_["global_process_info"];
         root["ticks"]                       = output_["ticks"];
 
         std::ofstream out(filepath);
         if (!out.is_open()) return false;
-        out << root.dump(2);
+        out << root.dump(1);
         return true;
 
     } catch (...) {

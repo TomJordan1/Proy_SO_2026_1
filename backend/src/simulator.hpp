@@ -4,6 +4,7 @@
 #include "scheduler.hpp"
 #include "dispatcher.hpp"
 #include "memory_manager.hpp"
+#include "paged_memory_manager.hpp"
 #include "io_manager.hpp"
 #include "error_manager.hpp"
 #include "json_writer.hpp"
@@ -53,6 +54,7 @@ private:
     std::vector<std::deque<PCB*>> readyQueues_;   // [level] → deque of PCBs
     std::vector<PCB*>             waitingList_;   // blocked on I/O
     std::vector<PCB*>             newList_;       // not yet admitted
+    std::vector<PCB*>             suspendedList_; // suspended by Medium-Term Scheduler
 
     // CPU cores
     std::vector<CPUCore> cores_;
@@ -60,6 +62,7 @@ private:
     // Sub-systems
     Scheduler        scheduler_;
     MemoryManager    memory_;
+    std::unique_ptr<PagedMemoryManager> pagedMemory_;
     IOManager        io_;
     ErrorManager     errors_;
 
@@ -72,7 +75,12 @@ private:
     double sumWaiting_          = 0;
     double sumResponse_         = 0;
 
-    // Last context switch event (for writer)
+    // Medium-Term Scheduler state
+    int totalHardPageFaults_    = 0;
+    int lastPageFaultCount_     = 0;
+    int ticksSinceLastMtsCheck_ = 0;
+
+    // Utilitiest context switch event (for writer)
     ContextSwitchEvent lastCtxEvent_;
     bool               hadCtxEvent_ = false;
 
@@ -91,6 +99,7 @@ private:
     // ── Helpers ──────────────────────────────────────────────────────────────
     PCB*   findProcess(int pid);
     void   terminateProcess(PCB* p, int tick);
+    void   failProcess(PCB* p, int tick, ErrorCode err);
     bool   allDone() const;
     int    pidCounter_ = 0;
 

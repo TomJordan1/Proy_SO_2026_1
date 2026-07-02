@@ -4,7 +4,7 @@
 #include <vector>
 
 // ─── Process States ─────────────────────────────────────────────────────────
-enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED, ERROR };
+enum class ProcessState { NEW, READY, RUNNING, WAITING, TERMINATED, ERROR, SUSPENDED };
 
 inline std::string stateToString(ProcessState s) {
     switch (s) {
@@ -20,6 +20,8 @@ inline std::string stateToString(ProcessState s) {
             return "TERMINATED";
         case ProcessState::ERROR:
             return "ERROR";
+        case ProcessState::SUSPENDED:
+            return "SUSPENDED";
     }
     return "UNKNOWN";
 }
@@ -122,20 +124,81 @@ enum class SegmentType { OS, TEXT, DATA, HEAP, STACK, FREE };
 
 inline std::string segmentTypeToString(SegmentType t) {
     switch (t) {
-        case SegmentType::OS:
-            return "OS";
-        case SegmentType::TEXT:
-            return "TEXT";
-        case SegmentType::DATA:
-            return "DATA";
-        case SegmentType::HEAP:
-            return "HEAP";
-        case SegmentType::STACK:
-            return "STACK";
-        case SegmentType::FREE:
-            return "FREE";
+        case SegmentType::OS: return "OS";
+        case SegmentType::TEXT: return "TEXT";
+        case SegmentType::DATA: return "DATA";
+        case SegmentType::HEAP: return "HEAP";
+        case SegmentType::STACK: return "STACK";
+        case SegmentType::FREE: return "FREE";
     }
     return "FREE";
+}
+
+// ─── Virtual Memory Enums ────────────────────────────────────────────────────
+enum class MemoryMode { CONTIGUOUS, PAGED };
+
+inline MemoryMode parseMemoryMode(const std::string &s) {
+    if (s == "PAGED") return MemoryMode::PAGED;
+    return MemoryMode::CONTIGUOUS;
+}
+
+enum class PageTableType { SINGLE_LEVEL, TWO_LEVEL, INVERTED, HASHED };
+
+inline PageTableType parsePageTableType(const std::string &s) {
+    if (s == "TWO_LEVEL") return PageTableType::TWO_LEVEL;
+    if (s == "INVERTED") return PageTableType::INVERTED;
+    if (s == "HASHED") return PageTableType::HASHED;
+    return PageTableType::SINGLE_LEVEL;
+}
+
+enum class SwapDeviceType { HDD, SSD };
+
+inline SwapDeviceType parseSwapDeviceType(const std::string &s) {
+    if (s == "SSD") return SwapDeviceType::SSD;
+    return SwapDeviceType::HDD;
+}
+
+enum class ReplacementAlgorithm {
+    NRU, FIFO, SECOND_CHANCE, CLOCK, LRU, NFU, AGING, WORKING_SET, WSCLOCK
+};
+
+inline ReplacementAlgorithm parseReplacementAlgorithm(const std::string &s) {
+    if (s == "NRU") return ReplacementAlgorithm::NRU;
+    if (s == "FIFO") return ReplacementAlgorithm::FIFO;
+    if (s == "SECOND_CHANCE") return ReplacementAlgorithm::SECOND_CHANCE;
+    if (s == "CLOCK") return ReplacementAlgorithm::CLOCK;
+    if (s == "LRU") return ReplacementAlgorithm::LRU;
+    if (s == "NFU") return ReplacementAlgorithm::NFU;
+    if (s == "AGING") return ReplacementAlgorithm::AGING;
+    if (s == "WORKING_SET") return ReplacementAlgorithm::WORKING_SET;
+    if (s == "WSCLOCK") return ReplacementAlgorithm::WSCLOCK;
+    return ReplacementAlgorithm::FIFO;
+}
+
+inline std::string replacementAlgoToString(ReplacementAlgorithm a) {
+    switch (a) {
+        case ReplacementAlgorithm::NRU: return "NRU";
+        case ReplacementAlgorithm::FIFO: return "FIFO";
+        case ReplacementAlgorithm::SECOND_CHANCE: return "SECOND_CHANCE";
+        case ReplacementAlgorithm::CLOCK: return "CLOCK";
+        case ReplacementAlgorithm::LRU: return "LRU";
+        case ReplacementAlgorithm::NFU: return "NFU";
+        case ReplacementAlgorithm::AGING: return "AGING";
+        case ReplacementAlgorithm::WORKING_SET: return "WORKING_SET";
+        case ReplacementAlgorithm::WSCLOCK: return "WSCLOCK";
+    }
+    return "FIFO";
+}
+
+// ─── Memory Access Pattern ───────────────────────────────────────────────────
+enum class MemoryAccessPattern { SEQUENTIAL, LOCALITY };
+
+inline std::string accessPatternToString(MemoryAccessPattern p) {
+    switch (p) {
+        case MemoryAccessPattern::SEQUENTIAL: return "SEQUENTIAL";
+        case MemoryAccessPattern::LOCALITY: return "LOCALITY";
+    }
+    return "SEQUENTIAL";
 }
 
 // ─── Error Codes ─────────────────────────────────────────────────────────────
@@ -155,6 +218,20 @@ inline std::string errorCodeToString(ErrorCode e) {
             return "ILLEGAL_ACCESS";
         case ErrorCode::CANCEL_USR:
             return "CANCEL_USR";
+    }
+    return "";
+}
+
+// ─── IO Error Codes ──────────────────────────────────────────────────────────
+enum class IOErrorCode { NONE, TIMEOUT, DEVICE_OFFLINE, CORRUPTED_DATA, PERMISSION_DENIED };
+
+inline std::string ioErrorCodeToString(IOErrorCode e) {
+    switch (e) {
+        case IOErrorCode::NONE: return "";
+        case IOErrorCode::TIMEOUT: return "TIMEOUT";
+        case IOErrorCode::DEVICE_OFFLINE: return "DEVICE_OFFLINE";
+        case IOErrorCode::CORRUPTED_DATA: return "CORRUPTED_DATA";
+        case IOErrorCode::PERMISSION_DENIED: return "PERMISSION_DENIED";
     }
     return "";
 }
@@ -194,6 +271,14 @@ struct SimConfig {
     int maxProcessMB = 256;
     AllocationStrategy strategy = AllocationStrategy::FIRST_FIT;
     bool mmuEnabled = true;
+
+    // Virtual Memory (Paging)
+    MemoryMode memoryMode = MemoryMode::CONTIGUOUS;
+    PageTableType pageTableType = PageTableType::SINGLE_LEVEL;
+    SwapDeviceType swapDeviceType = SwapDeviceType::HDD;
+    ReplacementAlgorithm replacementAlgorithm = ReplacementAlgorithm::FIFO;
+    int tlbSize = 16;
+    int swapSizeMB = 2048;
 
     // IO Devices
     std::vector<IODeviceConfig> ioDevices;

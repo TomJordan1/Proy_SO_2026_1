@@ -124,6 +124,21 @@ class _DeviceRow(QFrame):
         )
         self._layout.addWidget(self.lbl_current)
 
+        # ── Parámetros y Errores ──────────────────────────────────────────────
+        self.lbl_params = QLabel("")
+        self.lbl_params.setStyleSheet(
+            f"color:{Colors.TEXT_MUTED}; border:none; background:transparent; font-size:7pt; font-family:monospace;"
+        )
+        self.lbl_params.setVisible(False)
+        self._layout.addWidget(self.lbl_params)
+
+        self.lbl_error = QLabel("")
+        self.lbl_error.setStyleSheet(
+            f"color:{Colors.STATE_ERROR}; border:none; background:transparent; font-size:7pt; font-weight:bold;"
+        )
+        self.lbl_error.setVisible(False)
+        self._layout.addWidget(self.lbl_error)
+
         # ── Barra de progreso ─────────────────────────────────────────────────
         self.progress = QProgressBar()
         self.progress.setTextVisible(False)
@@ -241,12 +256,28 @@ class _DeviceRow(QFrame):
         if is_busy:
             pid  = dev.get("current_pid", -1)
             name = dev.get("current_name", "")
+            params = dev.get("parameters", "")
+            error = dev.get("error_code", "")
             self._current_pid = int(pid) if pid else -1
             self.lbl_current.setText(f"P{pid} ({name})" if name else f"PID {pid}")
             self.progress.setValue(int(progress))
+            
+            if params:
+                self.lbl_params.setText(f"Params: {params}")
+                self.lbl_params.setVisible(True)
+            else:
+                self.lbl_params.setVisible(False)
+                
+            if error and error != "NONE":
+                self.lbl_error.setText(f"Error: {error}")
+                self.lbl_error.setVisible(True)
+            else:
+                self.lbl_error.setVisible(False)
         else:
             self._current_pid = -1
             self.lbl_current.setText("—")
+            self.lbl_params.setVisible(False)
+            self.lbl_error.setVisible(False)
             self.progress.setValue(0)
 
         # Mostrar/ocultar panel de interrupción del teclado
