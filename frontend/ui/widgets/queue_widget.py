@@ -116,6 +116,7 @@ class _ProcessChip(QFrame):
 def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGroupBox:
     """Devuelve una columna QGroupBox vertical llena de chips de proceso."""
     box = QGroupBox(title)
+    box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     box.setStyleSheet(
         f"""
         QGroupBox {{
@@ -237,7 +238,6 @@ class QueueWidget(QWidget):
             for i, queue in enumerate(ready_queues):
                 accent = Colors.CORE_COLORS[i % len(Colors.CORE_COLORS)]
                 col = _build_queue_column(f"Core {i}", queue, accent)
-                col.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
                 ready_row.addWidget(col)
 
         self._layout.addLayout(ready_row)
