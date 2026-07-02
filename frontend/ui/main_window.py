@@ -349,14 +349,17 @@ class MainWindow(QMainWindow):
             if "cores" in first_state:
                 num_c = len(first_state["cores"])
 
-        self.cpu_widget = CPUWidget(num_cores=num_c)
-        self.cpu_widget.setMinimumHeight(150)
-        split_procs.addWidget(self.cpu_widget)
-
-        split_procs_mid = QSplitter(Qt.Orientation.Horizontal)
+        # ── Superior: QueueWidget (Toma todo el ancho) ──
         self.queue_widget = QueueWidget()
         self.queue_widget.setMinimumHeight(180)
-        split_procs_mid.addWidget(self.queue_widget)
+        split_procs.addWidget(self.queue_widget)
+
+        # ── Medio: Splitter Horizontal (CPU a la izquierda, PCB a la derecha) ──
+        split_procs_mid = QSplitter(Qt.Orientation.Horizontal)
+        
+        self.cpu_widget = CPUWidget(num_cores=num_c)
+        self.cpu_widget.setMinimumHeight(150)
+        split_procs_mid.addWidget(self.cpu_widget)
 
         self.pcb_table = PCBTableWidget()
         self.pcb_table.setMinimumHeight(200)
