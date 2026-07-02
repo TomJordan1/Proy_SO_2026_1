@@ -1057,7 +1057,7 @@ class MainWindow(QMainWindow):
                     
                 ext_frag = m.get("external_fragmentation_mb", 0)
                 ctx_sw = m.get("context_switches", 0)
-                avg_turn = m.get("avg_turnaround_time", 0)
+                avg_turn = m.get("avg_turnaround", m.get("avg_turnaround_time", 0))
                 avg_wait = m.get("avg_waiting_time", 0)
                 avg_resp = m.get("avg_response_time", 0)
                 
