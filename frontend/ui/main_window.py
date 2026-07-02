@@ -909,49 +909,163 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_export_report(self):
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
-        
-        if not self._playback_data:
-            QMessageBox.warning(self, "Exportar Reporte", "No hay datos de simulación cargados para exportar.")
-            return
-            
-        last_frame = self._playback_data[-1]
-        last_snap = last_frame.get("state", last_frame)
-        if "metrics" not in last_snap:
-            QMessageBox.warning(self, "Exportar Reporte", "El último tick de la simulación no contiene información de métricas.")
-            return
-            
-        metrics = last_snap["metrics"]
+        from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
+        from PySide6.QtCore import QCoreApplication
+        from simulation.paths import ESCENARIO_PATH, SIMULATOR_EXE, BACKEND_DIR
+        import os
+        import json
+        import copy
+        import subprocess
+        import time
         
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Reporte de Simulación", "reporte_simulacion.md", "Archivos Markdown (*.md)"
+            self, "Exportar Benchmark de Memoria", "benchmark_memoria.md", "Archivos Markdown (*.md)"
         )
         if not filepath:
             return
             
+        if not os.path.exists(ESCENARIO_PATH):
+            QMessageBox.critical(self, "Error", f"No se encontró el escenario base en: {ESCENARIO_PATH}")
+            return
+            
+        with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
+            base_scenario = json.load(f)
+            
+        original_mode = base_scenario.get("hardware", {}).get("memory", {}).get("mode", "UNKNOWN")
+        
+        # Forzar modo CONTIGUOUS y aumentar memoria y procesos si es muy pequeño para estrés
+        base_scenario["hardware"]["memory"]["mode"] = "CONTIGUOUS"
+        if base_scenario["hardware"]["memory"].get("totalMB", 0) < 512:
+            base_scenario["hardware"]["memory"]["totalMB"] = 512
+            base_scenario["hardware"]["memory"]["osReservedMB"] = 32
+            
+        if len(base_scenario.get("processes", [])) < 20:
+            import random
+            base_procs = copy.deepcopy(base_scenario.get("processes", []))
+            if base_procs:
+                for i in range(15):
+                    p = copy.deepcopy(base_procs[i % len(base_procs)])
+                    p["name"] = f"App_{len(base_scenario.get('processes', [])) + 1}"
+                    p["arrival_tick"] = random.randint(0, 20)
+                    p["memory_size"] = random.randint(10, 60)
+                    p["burst_time"] = random.randint(5, 15)
+                    base_scenario["processes"].append(p)
+        
+        strategies = ["FIRST_FIT", "BEST_FIT", "WORST_FIT"]
+        results = {}
+        
+        progress = QProgressDialog("Corriendo Benchmark de Asignación de Memoria...", "Cancelar", 0, len(strategies), self)
+        progress.setWindowTitle("Generando Reporte")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.show()
+        
+        for idx, strategy in enumerate(strategies):
+            if progress.wasCanceled():
+                return
+            progress.setLabelText(f"Evaluando estrategia {strategy}...")
+            progress.setValue(idx)
+            
+            scenario = copy.deepcopy(base_scenario)
+            scenario["hardware"]["memory"]["allocationStrategy"] = strategy
+            
+            temp_input = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_input_{strategy}.json")
+            temp_output = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_output_{strategy}.json")
+            
+            with open(temp_input, "w", encoding="utf-8") as f:
+                json.dump(scenario, f, indent=2)
+                
+            try:
+                process = subprocess.Popen(
+                    [SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"],
+                    cwd=BACKEND_DIR
+                )
+                while process.poll() is None:
+                    QCoreApplication.processEvents()
+                    time.sleep(0.05)
+            except Exception as e:
+                QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar {strategy}:\n{e}")
+                progress.close()
+                return
+                
+            if os.path.exists(temp_output):
+                with open(temp_output, "r", encoding="utf-8") as f:
+                    try:
+                        output_data = json.load(f)
+                        if output_data and "ticks" in output_data:
+                            ticks_data = output_data["ticks"]
+                            last_snap = None
+                            for frame in reversed(ticks_data):
+                                if frame.get("type") == "snapshot":
+                                    last_snap = frame.get("state", frame)
+                                    break
+                                elif "type" not in frame: # legacy
+                                    last_snap = frame
+                                    break
+                            if last_snap and "metrics" in last_snap:
+                                results[strategy] = last_snap["metrics"]
+                    except:
+                        pass
+                        
+            try:
+                os.remove(temp_input)
+                os.remove(temp_output)
+            except:
+                pass
+                
+        progress.setValue(len(strategies))
+        progress.close()
+        
+        # Escribir el reporte
         try:
             with open(filepath, "w", encoding="utf-8") as f:
-                f.write("# Reporte de Simulación - PatatOS\n\n")
-                f.write(f"Reporte generado en el Tick: {last_snap.get('tick', 0)}\n\n")
-                f.write("## Métricas Generales del Sistema\n\n")
-                f.write(f"- **Procesos Completados**: {metrics.get('completed_processes', 0)}\n")
-                f.write(f"- **Cambios de Contexto**: {metrics.get('context_switches', 0)}\n")
-                f.write(f"- **Rendimiento de CPU (Throughput)**: {metrics.get('throughput', 0):.4f} procs/tick\n")
-                f.write(f"- **Uso de CPU (Utilización)**: {metrics.get('cpu_utilization_pct', 0):.2f}%\n")
+                f.write("# Memory Allocation Strategies Benchmark Report\n\n")
+                if original_mode == "PAGED":
+                    f.write("> [!NOTE]\n> El escenario base actualmente cargado usaba **Memoria Paginada (PAGED)**. Para realizar esta comparativa de estrategias de asignación, el benchmark forzó internamente el modo a **CONTIGUA** en estas corridas.\n\n")
+                else:
+                    f.write(f"> [!NOTE]\n> El escenario cargado usaba memoria {original_mode}. El reporte compara las 3 estrategias de asignación contigua.\n\n")
+                    
+                f.write("Este reporte compara el rendimiento ('performance') y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: **FIRST_FIT**, **BEST_FIT**, y **WORST_FIT**.\n\n")
                 
-                f.write("\n## Tiempos Promedio\n\n")
-                f.write(f"- **Tiempo de Turnaround**: {metrics.get('avg_turnaround_time', 0):.2f} ticks\n")
-                f.write(f"- **Tiempo de Espera**: {metrics.get('avg_waiting_time', 0):.2f} ticks\n")
-                f.write(f"- **Tiempo de Respuesta**: {metrics.get('avg_response_time', 0):.2f} ticks\n")
+                f.write("## Resultados\n\n")
+                f.write("| Estrategia | Fragmentación Externa | Context Switches | Avg Turnaround | Avg Waiting | Avg Response |\n")
+                f.write("|------------|-----------------------|------------------|----------------|-------------|--------------|\n")
                 
-                f.write("\n## Uso de Memoria y Paginación\n\n")
-                f.write(f"- **Fragmentación Interna**: {metrics.get('internal_fragmentation_mb', 0)} MB\n")
-                f.write(f"- **Fragmentación Externa**: {metrics.get('external_fragmentation_mb', 0)} MB\n")
-                f.write(f"- **Fallos de Página (Hard)**: {metrics.get('total_hard_page_faults', 0)}\n")
+                best_frag_val = float('inf')
+                best_frag_strat = ""
+                best_perf_val = float('inf')
+                best_perf_strat = ""
                 
-            QMessageBox.information(self, "Exportar Reporte", f"Reporte exportado exitosamente a:\n{filepath}")
+                for strategy in strategies:
+                    m = results.get(strategy)
+                    if not m:
+                        f.write(f"| {strategy} | N/A | N/A | N/A | N/A | N/A |\n")
+                        continue
+                        
+                    ext_frag = m.get("external_fragmentation_mb", 0)
+                    ctx_sw = m.get("context_switches", 0)
+                    avg_turn = m.get("avg_turnaround_time", 0)
+                    avg_wait = m.get("avg_waiting_time", 0)
+                    avg_resp = m.get("avg_response_time", 0)
+                    
+                    f.write(f"| {strategy} | {ext_frag} MB | {ctx_sw} | {avg_turn:.2f} | {avg_wait:.2f} | {avg_resp:.2f} |\n")
+                    
+                    if ext_frag < best_frag_val:
+                        best_frag_val = ext_frag
+                        best_frag_strat = strategy
+                        
+                    if avg_turn < best_perf_val:
+                        best_perf_val = avg_turn
+                        best_perf_strat = strategy
+                        
+                f.write("\n## Conclusiones\n\n")
+                if best_frag_strat:
+                    f.write(f"- **Optimización de Fraccionamiento:** La estrategia **{best_frag_strat}** resultó ser la más eficiente, presentando una menor fragmentación externa.\n")
+                if best_perf_strat:
+                    f.write(f"- **Rendimiento (Performance):** La estrategia **{best_perf_strat}** demostró ser la más eficiente en términos de rendimiento (menor Turnaround promedio), al asignar más rápido la memoria.\n")
+                    
+            QMessageBox.information(self, "Reporte Exportado", f"El Benchmark de Memoria fue exportado exitosamente a:\n{filepath}")
         except Exception as e:
-            QMessageBox.critical(self, "Error al Exportar", f"No se pudo guardar el reporte:\n{e}")
+            QMessageBox.critical(self, "Error al Guardar", f"No se pudo guardar el reporte:\n{e}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Refresco de UI
