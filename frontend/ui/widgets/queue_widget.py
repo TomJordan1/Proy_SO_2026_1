@@ -141,8 +141,8 @@ def _build_queue_column(title: str, processes: list[dict], accent: str) -> QGrou
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
     scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-    scroll.setFixedHeight(75)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+    scroll.setFixedHeight(90)
     
     inner_widget = QWidget()
     inner_widget.setStyleSheet("background: transparent;")
