@@ -252,6 +252,7 @@ json JsonWriter::serializeIODevices(const IOManager& io) const {
         d["progress_percent"]= dev.progressPercent();
         d["queue_pids"]      = dev.queuePids();
         d["parameters"]      = (dev.current.has_value()) ? json(dev.current->parameters) : json(nullptr);
+        d["resolved"]        = (dev.current.has_value()) ? json(dev.current->resolved) : json(false);
         if (dev.current.has_value() && dev.current->errorCode != IOErrorCode::NONE) {
             d["error_code"]  = ioErrorCodeToString(dev.current->errorCode);
         }

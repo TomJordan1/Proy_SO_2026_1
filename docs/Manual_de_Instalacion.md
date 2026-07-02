@@ -1,53 +1,53 @@
 # Manual de Instalación
 
-Este documento detalla las tecnologías utilizadas en el simulador PatatOS y los pasos necesarios para instalarlo y compilarlo en un entorno local.
+Este documento detalla las tecnologías utilizadas en el simulador PatatOS y los pasos para compilarlo y ejecutarlo localmente.
 
-## 1. Tecnologías y Framework Utilizados
+## 1. Tecnologías Utilizadas
 
-| Componente | Tecnología | Versión / Justificación |
+| Componente | Tecnología | Descripción |
 | :--- | :--- | :--- |
-| **Motor de simulación** | C++17 | GCC/Clang/MSVC compatible. Rendimiento óptimo para el procesamiento tick a tick. |
-| **Sistema de compilación** | CMake | 3.15+. Portabilidad y gestión de dependencias multiplataforma. |
-| **Librería JSON** | nlohmann/json | header-only. Librería estándar de facto para JSON en C++. |
-| **Interfaz gráfica** | Python 3 + PySide6 | Qt 6. Framework maduro para interfaces de escritorio con capacidades gráficas. |
-| **Renderizado gráfico** | QPainter | integrado en Qt. Permite dibujo personalizado de diagramas de memoria, Gantt y estados. |
+| **Motor de simulación** | C++23 | Usado para simular la lógica y el rendimiento. Compatible con GCC, Clang y MSVC. |
+| **Sistema de compilación** | CMake | Usado para facilitar la compilación del código de C++ en múltiples plataformas. |
+| **Librería JSON** | nlohmann/json | Usado en C++ para parsear la configuración y exportar resultados. |
+| **Interfaz gráfica** | Python 3 + PySide6 | Usado para la interfaz de escritorio (Qt 6). |
+| **Renderizado gráfico** | QPainter | Usado para dibujar los diagramas personalizados (memoria, Gantt, tabla PCB). |
 
 ## 2. Requisitos previos
-Para poder ejecutar este proyecto desde cero, asegúrese de tener instalados:
-- Compilador C++17 (GCC 7+, Clang 5+, MSVC 2017+)
+Para ejecutar este proyecto, necesitas instalar:
+- Un compilador con soporte para C++23 (GCC 11+, Clang 14+, MSVC 2022+)
 - CMake 3.15 o superior
 - Python 3.8 o superior
-- Librerías de Python requeridas:
+- Librerías de Python requeridas (puedes instalarlas mediante pip):
   ```bash
   pip install PySide6
   pip install psutil
   ```
 
-## 3. Compilación del Backend (Motor de Simulación en C++)
-El motor está ubicado en la carpeta `backend`. Para compilarlo:
+## 3. Compilación del Backend (C++)
+El código fuente del motor de simulación se encuentra en la carpeta `backend`. Para compilarlo, usa una terminal y ejecuta:
 ```bash
 cd backend
 mkdir build && cd build
 cmake ..
 cmake --build .
 ```
-Esto generará el ejecutable `simulator` (o `simulator.exe` en entornos Windows).
+Esto creará el archivo ejecutable `simulator` (o `simulator.exe` en Windows) dentro del directorio de construcción. En los entornos ya configurados, también puede compilarse directamente usando g++.
 
-## 4. Ejecución del Backend (Uso Independiente por CLI)
-Es posible ejecutar la simulación desde consola si se cuenta con un archivo JSON con los parámetros de entrada:
+## 4. Ejecución por Consola
+Si deseas usar solo el backend, puedes ejecutar la simulación desde la terminal indicando los archivos JSON:
 ```bash
-./simulator -i escenario_modelo.json -o output.json -t 200
+./simulator -i input.json -o output.json -t 50000
 ```
-**Parámetros de línea de comandos:**
-- `-i <archivo>`: Archivo JSON de entrada (default: `escenario_modelo.json`)
-- `-o <archivo>`: Archivo JSON de salida (default: `output.json`)
-- `-t <ticks>`: Número máximo de ticks a simular (default: `200`)
-- `-h`: Mostrar la ayuda
+**Parámetros:**
+- `-i <archivo>`: Ruta del archivo JSON de configuración y entrada.
+- `-o <archivo>`: Ruta del archivo JSON donde se guardarán los resultados.
+- `-t <ticks>`: Cantidad máxima de ticks a ejecutar antes de detener el simulador por seguridad.
+- `-h`: Muestra el menú de ayuda.
 
-## 5. Ejecución Completa (Frontend)
-Para ejecutar la interfaz gráfica y permitir que esta orqueste automáticamente las compilaciones y ejecuciones del C++:
+## 5. Ejecución con la Interfaz Gráfica (Frontend)
+Para ejecutar el simulador completo con su interfaz de usuario, abre una terminal en la raíz del proyecto y ejecuta:
 ```bash
 cd frontend
 python main.py
 ```
-Se desplegará de inmediato la ventana principal y el diálogo de configuración del sistema.
+Aparecerá el menú de configuración principal, desde el cual la interfaz se encargará de invocar al ejecutable C++ automáticamente en segundo plano.

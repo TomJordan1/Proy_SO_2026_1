@@ -135,8 +135,14 @@ class MainWindow(QMainWindow):
             if hasattr(self, "spin_jump"):
                 if self._playback_data:
                     self.spin_jump.setEnabled(True)
+                    self.spin_jump.blockSignals(True)
                     self.spin_jump.setRange(0, len(self._playback_data) - 1)
-                    self.spin_jump.setValue(0)
+                    if not hasattr(self, "_playback_tick") or self._playback_tick == 0:
+                        self.spin_jump.setValue(0)
+                    else:
+                        # Mantener visualmente el tick en el que estábamos
+                        self.spin_jump.setValue(min(self._playback_tick, len(self._playback_data) - 1))
+                    self.spin_jump.blockSignals(False)
                 else:
                     self.spin_jump.setEnabled(False)
                     
@@ -640,7 +646,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
 
-        dlg = _NewProcessDialog(self._playback_tick, self)
+        dlg = _NewProcessDialog(self._playback_tick + 1, self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.get_data()
             
@@ -710,6 +716,16 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
 
+        # Get the actual tick displayed in the UI to avoid +1 offset bugs
+        tick_to_inject = 0
+        if self._playback_data and 0 <= self._playback_tick < len(self._playback_data):
+            snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
+            tick_to_inject = snap.get("tick", 0)
+        elif self._playback_data:
+            # Clamped fallback
+            snap = get_state_at_tick(self._playback_data, len(self._playback_data) - 1, self._static_info)
+            tick_to_inject = snap.get("tick", 0)
+
         try:
             if os.path.exists(ESCENARIO_PATH):
                 with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
@@ -719,12 +735,20 @@ class MainWindow(QMainWindow):
 
             # Inyectar el evento de teclado en el escenario para que C++ lo lea
             events = scen.setdefault("events", [])
-            events.append({
-                "tick":   tick_actual,
-                "type":   "KEYBOARD",
-                "pid":    pid,
-                "action": action,
-            })
+            
+            duplicate = False
+            for ev in events:
+                if ev.get("tick") == tick_to_inject and ev.get("pid") == pid and ev.get("action") == action:
+                    duplicate = True
+                    break
+                    
+            if not duplicate:
+                events.append({
+                    "tick":   tick_to_inject,
+                    "type":   "KEYBOARD",
+                    "pid":    pid,
+                    "action": action,
+                })
 
             with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=2, ensure_ascii=False)
@@ -767,6 +791,11 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self._playback_tick = min(tick_actual, len(self._playback_data) - 1)
+        if hasattr(self, "spin_jump"):
+            self.spin_jump.blockSignals(True)
+            self.spin_jump.setValue(self._playback_tick)
+            self.spin_jump.blockSignals(False)
+            
         if self._playback_data and self._playback_tick >= 0:
             self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
         # Siempre reanudar después de resolver la interrupción
@@ -999,7 +1028,11 @@ class MainWindow(QMainWindow):
                                     last_snap = frame
                                     break
                             if last_snap and "metrics" in last_snap:
-                                results[strategy] = last_snap["metrics"]
+                                res_dict = dict(last_snap["metrics"])
+                                if "memory" in last_snap and "stats" in last_snap["memory"]:
+                                    res_dict.update(last_snap["memory"]["stats"])
+                                res_dict["total_ticks"] = frame.get("tick", last_snap.get("tick", 0))
+                                results[strategy] = res_dict
                     except:
                         pass
                         
@@ -1042,7 +1075,7 @@ class MainWindow(QMainWindow):
             
             html += "<h2>Resultados</h2>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
-            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Total Ticks</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
             
             best_frag_val = float('inf')
             best_frag_strat = ""
@@ -1055,13 +1088,14 @@ class MainWindow(QMainWindow):
                     html += f"<tr><td>{strategy}</td><td colspan='5'>N/A</td></tr>"
                     continue
                     
-                ext_frag = m.get("external_fragmentation_mb", 0)
+                ext_frag = m.get("fragmentation_percent", 0.0)
+                tot_ticks = m.get("total_ticks", 0)
                 ctx_sw = m.get("context_switches", 0)
-                avg_turn = m.get("avg_turnaround_time", 0)
+                avg_turn = m.get("avg_turnaround", m.get("avg_turnaround_time", 0))
                 avg_wait = m.get("avg_waiting_time", 0)
                 avg_resp = m.get("avg_response_time", 0)
                 
-                html += f"<tr><td>{strategy}</td><td>{ext_frag} MB</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
+                html += f"<tr><td>{strategy}</td><td>{ext_frag:.1f}%</td><td>{tot_ticks}</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
                 
                 if ext_frag < best_frag_val:
                     best_frag_val = ext_frag
@@ -1175,7 +1209,8 @@ class MainWindow(QMainWindow):
         for dev in snap.get("io_devices", []):
             name = (dev.get("name") or dev.get("device_name", "")).upper()
             is_busy = bool(dev.get("is_busy")) or str(dev.get("status", "")).upper() == "BUSY"
-            if name == "KEYBOARD" and is_busy and self.clock.is_running:
+            is_resolved = bool(dev.get("resolved", False))
+            if name == "KEYBOARD" and is_busy and not is_resolved and self.clock.is_running:
                 self.clock.pause()
                 self.btn_start.setEnabled(False)   # bloquea reanudar hasta resolver
                 self.btn_pause.setEnabled(False)

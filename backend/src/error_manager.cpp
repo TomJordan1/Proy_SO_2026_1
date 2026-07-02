@@ -3,7 +3,7 @@
 // ─── Constructor ─────────────────────────────────────────────────────────────
 ErrorManager::ErrorManager(double errorProbability)
     : probability_(errorProbability),
-      rng_(std::random_device{}()),
+      rng_(42),
       dist_(0.0, 1.0),
       codeDist_(1, 4) // maps to ErrorCode enum values 1..4
 {}

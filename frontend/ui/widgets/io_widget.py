@@ -282,7 +282,8 @@ class _DeviceRow(QFrame):
 
         # Mostrar/ocultar panel de interrupción del teclado
         if self._has_kbd:
-            if is_busy:
+            is_resolved = bool(dev.get("resolved", False))
+            if is_busy and not is_resolved:
                 proc_text = self.lbl_current.text()
                 self._interrupt_lbl.setText(
                     f"⚠️  Interrupción de Teclado\n"
