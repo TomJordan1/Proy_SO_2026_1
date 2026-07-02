@@ -155,6 +155,9 @@ class MainWindow(QMainWindow):
         # Acción directa en el menú
         action_load = menu.addAction("📂 Cargar JSON")
         action_load.triggered.connect(self._on_load_json)
+
+        action_reconfig = menu.addAction("⚙️ Reconfigurar Entorno")
+        action_reconfig.triggered.connect(self._on_reconfigure)
         
         view_menu = menu.addMenu("Ver")
 
@@ -828,6 +831,10 @@ class MainWindow(QMainWindow):
             raw_frame["_timeline_count"] = len(self._global_timeline)
             raw_frame["_log_count"] = len(self._global_logs)
 
+    def _on_reconfigure(self):
+        self._wants_restart = True
+        self.close()
+
     def _on_load_json(self):
         import json
         import os
@@ -1036,7 +1043,6 @@ class MainWindow(QMainWindow):
 class _NewProcessDialog(QDialog):
     def __init__(self, current_tick: int, parent=None):
         super().__init__(parent)
-        self._update_playback_buttons(running=False)  # estado inicial: parado
         self.setWindowTitle("Añadir Proceso al Escenario")
         self.setModal(True)
         self.setFixedSize(360, 290)
@@ -1055,8 +1061,8 @@ class _NewProcessDialog(QDialog):
         row(0, "Nombre:", self.edit_name)
 
         self.spin_burst = QSpinBox()
-        self.spin_burst.setRange(3, 100)
-        self.spin_burst.setValue(20)
+        self.spin_burst.setRange(5, 20)
+        self.spin_burst.setValue(15)
         row(1, "Burst (ticks):", self.spin_burst)
 
         self.spin_prio = QSpinBox()

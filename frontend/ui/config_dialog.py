@@ -56,8 +56,8 @@ class ManualProcessRow(QWidget):
         layout.addWidget(self.name_edit)
 
         self.burst = QSpinBox()
-        self.burst.setRange(3, 100)
-        self.burst.setValue(20)
+        self.burst.setRange(5, 20)
+        self.burst.setValue(15)
         self.burst.setFixedWidth(80)
         layout.addWidget(self.burst)
 
@@ -151,9 +151,13 @@ class ConfigDialog(QDialog):
         btn_start.setFixedHeight(36)
         btn_start.clicked.connect(self._generate_and_view)
 
+        btn_load = QPushButton("📂  Cargar JSON")
+        btn_load.clicked.connect(self._load_prefabricated)
+
         btn_row.addWidget(btn_cancel)
         btn_row.addWidget(btn_defaults)
         btn_row.addWidget(btn_export)
+        btn_row.addWidget(btn_load)
         btn_row.addStretch()
         btn_row.addWidget(btn_start)
         root.addLayout(btn_row)
@@ -218,9 +222,9 @@ class ConfigDialog(QDialog):
 
         g.addWidget(_lbl("Memoria RAM total (MB):"), 0, 0)
         self.spin_mem = QSpinBox()
-        self.spin_mem.setRange(32, 4096)
+        self.spin_mem.setRange(8, 4096)
         self.spin_mem.setValue(1024)
-        self.spin_mem.setSingleStep(32)
+        self.spin_mem.setSingleStep(4)
         self.spin_mem.setFixedWidth(90)
         self.spin_mem.valueChanged.connect(self._update_mem_label)
         g.addWidget(self.spin_mem, 0, 1)
@@ -550,7 +554,7 @@ class ConfigDialog(QDialog):
         self.frame_contig.setVisible(not checked)
         self.frame_paged.setVisible(checked)
         if checked:
-            self.spin_mem.setValue(32)
+            self.spin_mem.setValue(12)
         else:
             self.spin_mem.setValue(1024)
             
@@ -568,7 +572,7 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        os_reserved = min(64, max(8, val // 4))
+        os_reserved = min(64, max(2, val // 4))
         avail = val - os_reserved
         self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
@@ -584,22 +588,22 @@ class ConfigDialog(QDialog):
         ("Sistema",    10, 0, 48,  2, "SYSTEM"),
         ("Kernel",      8, 0, 32,  1, "SYSTEM"),
         ("svchost",    15, 1, 64,  2, "SYSTEM"),
-        ("Explorador", 30, 3, 150, 4, "INTERACTIVE"),
-        ("Navegador",  45, 2, 450, 6, "INTERACTIVE"),
-        ("Editor",     25, 3, 200, 3, "CPU_BOUND"),
-        ("Compilador", 80, 4, 350, 5, "CPU_BOUND"),
+        ("Explorador", 18, 3, 150, 4, "INTERACTIVE"),
+        ("Navegador",  20, 2, 450, 6, "INTERACTIVE"),
+        ("Editor",     16, 3, 200, 3, "CPU_BOUND"),
+        ("Compilador", 20, 4, 350, 5, "CPU_BOUND"),
         ("Database",   20, 2, 500, 6, "IO_BOUND"),
-        ("Servidor",   60, 2, 250, 4, "IO_BOUND"),
+        ("Servidor",   19, 2, 250, 4, "IO_BOUND"),
         ("Logger",     12, 5, 24,  1, "IO_BOUND"),
-        ("Antivirus",  40, 4, 180, 3, "CPU_BOUND"),
-        ("Backup",     90, 6, 120, 2, "IO_BOUND"),
-        ("Player",     35, 3, 280, 4, "INTERACTIVE"),
+        ("Antivirus",  17, 4, 180, 3, "CPU_BOUND"),
+        ("Backup",     20, 6, 120, 2, "IO_BOUND"),
+        ("Player",     18, 3, 280, 4, "INTERACTIVE"),
         ("Terminal",   18, 2, 45,  1, "INTERACTIVE"),
-        ("Updater",    50, 7, 85,  2, "IO_BOUND"),
+        ("Updater",    20, 7, 85,  2, "IO_BOUND"),
         ("Scheduler",  10, 1, 16,  1, "SYSTEM"),
-        ("NetworkMgr", 22, 2, 56,  2, "IO_BOUND"),
-        ("UIServer",   28, 3, 110, 3, "INTERACTIVE"),
-        ("CryptoSvc",  55, 4, 140, 3, "CPU_BOUND"),
+        ("NetworkMgr", 19, 2, 56,  2, "IO_BOUND"),
+        ("UIServer",   20, 3, 110, 3, "INTERACTIVE"),
+        ("CryptoSvc",  15, 4, 140, 3, "CPU_BOUND"),
         ("MemMgr",      8, 1, 24,  1, "SYSTEM"),
     ]
 
@@ -788,7 +792,7 @@ class ConfigDialog(QDialog):
 
                     procs.append({
                         'name': name,
-                        'burst_time': random.randint(2, 15),
+                        'burst_time': random.randint(5, 20),
                         'priority': prio,
                         'memory_size': rss_mb,
                         'process_type': ptype,
@@ -857,7 +861,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         max(8, config.total_memory_mb // 4),
+                    "osReservedMB":         max(2, config.total_memory_mb // 4),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
@@ -911,22 +915,27 @@ class ConfigDialog(QDialog):
             f"Se generó input.json con {n} procesos {src}."
         )
 
-    def _generate_and_view(self):
-        import json
+    def _load_prefabricated(self):
+        import shutil
+        from PySide6.QtWidgets import QFileDialog
+        from simulation.paths import ESCENARIO_PATH
+        
+        filepath, _ = QFileDialog.getOpenFileName(self, "Cargar Escenario JSON", "", "JSON Files (*.json)")
+        if not filepath:
+            return
+            
+        try:
+            shutil.copy2(filepath, ESCENARIO_PATH)
+            self._run_backend_and_accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo cargar el archivo: {e}")
+
+    def _run_backend_and_accept(self):
         import subprocess
         import time
         from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import QCoreApplication
-        from simulation.paths import ESCENARIO_PATH, BACKEND_DIR, SIMULATOR_EXE
-
-        if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
-            QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
-            return
-
-        # 1. Save input
-        data = self._build_scenario_json()
-        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        from simulation.paths import BACKEND_DIR, SIMULATOR_EXE
 
         # 2. Llamada al Backend de C++
         progress = QProgressDialog("Esperando respuesta del motor C++...", None, 0, 0, self)
@@ -962,3 +971,18 @@ class ConfigDialog(QDialog):
         
         # 3. Accept dialog (main.py will then open the player)
         self.accept()
+
+    def _generate_and_view(self):
+        import json
+        from simulation.paths import ESCENARIO_PATH
+
+        if self.radio_manual.isChecked() and len(self._manual_rows) == 0:
+            QMessageBox.warning(self, "Sin procesos", "Agrega al menos 1 proceso manual o cambia a modo SO Real.")
+            return
+
+        # 1. Save input
+        data = self._build_scenario_json()
+        with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        self._run_backend_and_accept()
