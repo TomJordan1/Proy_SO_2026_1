@@ -646,7 +646,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
 
-        dlg = _NewProcessDialog(self._playback_tick, self)
+        dlg = _NewProcessDialog(self._playback_tick + 1, self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.get_data()
             
@@ -726,7 +726,7 @@ class MainWindow(QMainWindow):
             # Inyectar el evento de teclado en el escenario para que C++ lo lea
             events = scen.setdefault("events", [])
             events.append({
-                "tick":   tick_actual,
+                "tick":   tick_actual + 1,
                 "type":   "KEYBOARD",
                 "pid":    pid,
                 "action": action,
