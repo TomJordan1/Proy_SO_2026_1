@@ -653,7 +653,7 @@ PCB* Simulator::findProcess(int pid) {
 // ─── allDone ─────────────────────────────────────────────────────────────────
 bool Simulator::allDone() const {
     for (const auto& up : pool_) {
-        if (up->state != ProcessState::TERMINATED) return false;
+        if (up->state != ProcessState::TERMINATED && up->state != ProcessState::ERROR) return false;
     }
     return true;
 }
