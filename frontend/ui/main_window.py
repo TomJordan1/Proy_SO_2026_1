@@ -916,7 +916,7 @@ class MainWindow(QMainWindow):
         import time
         
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Benchmark de Memoria", "benchmark_memoria.md", "Archivos Markdown (*.md)"
+            self, "Exportar Benchmark de Memoria", "benchmark_memoria.pdf", "Archivos PDF (*.pdf)"
         )
         if not filepath:
             return
@@ -1012,55 +1012,70 @@ class MainWindow(QMainWindow):
         progress.setValue(len(strategies))
         progress.close()
         
-        # Escribir el reporte
+        # ── Escribir el reporte en PDF usando QTextDocument ──
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write("# Memory Allocation Strategies Benchmark Report\n\n")
-                if original_mode == "PAGED":
-                    f.write("> [!NOTE]\n> El escenario base actualmente cargado usaba **Memoria Paginada (PAGED)**. Para realizar esta comparativa de estrategias de asignación, el benchmark forzó internamente el modo a **CONTIGUA** en estas corridas.\n\n")
-                else:
-                    f.write(f"> [!NOTE]\n> El escenario cargado usaba memoria {original_mode}. El reporte compara las 3 estrategias de asignación contigua.\n\n")
-                    
-                f.write("Este reporte compara el rendimiento ('performance') y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: **FIRST_FIT**, **BEST_FIT**, y **WORST_FIT**.\n\n")
+            from PySide6.QtGui import QTextDocument, QPdfWriter
+            
+            html = "<h1>Memory Allocation Strategies Benchmark Report</h1>"
+            if original_mode == "PAGED":
+                html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
+                html += "<b>NOTA:</b> El escenario base actualmente cargado usaba <b>Memoria Paginada (PAGED)</b>. "
+                html += "Para realizar esta comparativa de estrategias de asignación, el benchmark forzó internamente el modo a <b>CONTIGUA</b> en estas corridas.</p>"
+            else:
+                html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
+                html += f"<b>NOTA:</b> El escenario cargado usaba memoria {original_mode}. El reporte compara las 3 estrategias de asignación contigua.</p>"
                 
-                f.write("## Resultados\n\n")
-                f.write("| Estrategia | Fragmentación Externa | Context Switches | Avg Turnaround | Avg Waiting | Avg Response |\n")
-                f.write("|------------|-----------------------|------------------|----------------|-------------|--------------|\n")
+            html += "<p>Este reporte compara el rendimiento (<i>performance</i>) y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: <b>FIRST_FIT</b>, <b>BEST_FIT</b>, y <b>WORST_FIT</b>.</p>"
+            
+            html += "<h2>Resultados</h2>"
+            html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
+            
+            best_frag_val = float('inf')
+            best_frag_strat = ""
+            best_perf_val = float('inf')
+            best_perf_strat = ""
+            
+            for strategy in strategies:
+                m = results.get(strategy)
+                if not m:
+                    html += f"<tr><td>{strategy}</td><td colspan='5'>N/A</td></tr>"
+                    continue
+                    
+                ext_frag = m.get("external_fragmentation_mb", 0)
+                ctx_sw = m.get("context_switches", 0)
+                avg_turn = m.get("avg_turnaround_time", 0)
+                avg_wait = m.get("avg_waiting_time", 0)
+                avg_resp = m.get("avg_response_time", 0)
                 
-                best_frag_val = float('inf')
-                best_frag_strat = ""
-                best_perf_val = float('inf')
-                best_perf_strat = ""
+                html += f"<tr><td>{strategy}</td><td>{ext_frag} MB</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
                 
-                for strategy in strategies:
-                    m = results.get(strategy)
-                    if not m:
-                        f.write(f"| {strategy} | N/A | N/A | N/A | N/A | N/A |\n")
-                        continue
-                        
-                    ext_frag = m.get("external_fragmentation_mb", 0)
-                    ctx_sw = m.get("context_switches", 0)
-                    avg_turn = m.get("avg_turnaround_time", 0)
-                    avg_wait = m.get("avg_waiting_time", 0)
-                    avg_resp = m.get("avg_response_time", 0)
+                if ext_frag < best_frag_val:
+                    best_frag_val = ext_frag
+                    best_frag_strat = strategy
                     
-                    f.write(f"| {strategy} | {ext_frag} MB | {ctx_sw} | {avg_turn:.2f} | {avg_wait:.2f} | {avg_resp:.2f} |\n")
+                if avg_turn < best_perf_val:
+                    best_perf_val = avg_turn
+                    best_perf_strat = strategy
                     
-                    if ext_frag < best_frag_val:
-                        best_frag_val = ext_frag
-                        best_frag_strat = strategy
-                        
-                    if avg_turn < best_perf_val:
-                        best_perf_val = avg_turn
-                        best_perf_strat = strategy
-                        
-                f.write("\n## Conclusiones\n\n")
-                if best_frag_strat:
-                    f.write(f"- **Optimización de Fraccionamiento:** La estrategia **{best_frag_strat}** resultó ser la más eficiente, presentando una menor fragmentación externa.\n")
-                if best_perf_strat:
-                    f.write(f"- **Rendimiento (Performance):** La estrategia **{best_perf_strat}** demostró ser la más eficiente en términos de rendimiento (menor Turnaround promedio), al asignar más rápido la memoria.\n")
-                    
-            QMessageBox.information(self, "Reporte Exportado", f"El Benchmark de Memoria fue exportado exitosamente a:\n{filepath}")
+            html += "</table>"
+            
+            html += "<h2>Conclusiones</h2><ul>"
+            if best_frag_strat:
+                html += f"<li><b>Optimización de Fraccionamiento:</b> La estrategia <b>{best_frag_strat}</b> resultó ser la más eficiente, presentando una menor fragmentación externa.</li>"
+            if best_perf_strat:
+                html += f"<li><b>Rendimiento (Performance):</b> La estrategia <b>{best_perf_strat}</b> demostró ser la más eficiente en términos de rendimiento (menor Turnaround promedio), al asignar más rápido la memoria.</li>"
+            html += "</ul>"
+            
+            # Generar PDF
+            doc = QTextDocument()
+            doc.setHtml(html)
+            
+            pdf_writer = QPdfWriter(filepath)
+            pdf_writer.setResolution(150)
+            doc.print_(pdf_writer)
+            
+            QMessageBox.information(self, "Reporte Exportado", f"El Benchmark de Memoria fue exportado a PDF exitosamente en:\n{filepath}")
         except Exception as e:
             QMessageBox.critical(self, "Error al Guardar", f"No se pudo guardar el reporte:\n{e}")
 
