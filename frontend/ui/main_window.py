@@ -135,8 +135,14 @@ class MainWindow(QMainWindow):
             if hasattr(self, "spin_jump"):
                 if self._playback_data:
                     self.spin_jump.setEnabled(True)
+                    self.spin_jump.blockSignals(True)
                     self.spin_jump.setRange(0, len(self._playback_data) - 1)
-                    self.spin_jump.setValue(0)
+                    if not hasattr(self, "_playback_tick") or self._playback_tick == 0:
+                        self.spin_jump.setValue(0)
+                    else:
+                        # Mantener visualmente el tick en el que estábamos
+                        self.spin_jump.setValue(min(self._playback_tick, len(self._playback_data) - 1))
+                    self.spin_jump.blockSignals(False)
                 else:
                     self.spin_jump.setEnabled(False)
                     
@@ -767,6 +773,11 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self._playback_tick = min(tick_actual, len(self._playback_data) - 1)
+        if hasattr(self, "spin_jump"):
+            self.spin_jump.blockSignals(True)
+            self.spin_jump.setValue(self._playback_tick)
+            self.spin_jump.blockSignals(False)
+            
         if self._playback_data and self._playback_tick >= 0:
             self._refresh(get_state_at_tick(self._playback_data, self._playback_tick, self._static_info))
         # Siempre reanudar después de resolver la interrupción
