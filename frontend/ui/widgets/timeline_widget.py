@@ -166,7 +166,13 @@ class TimelineWidget(QWidget):
         layout.addWidget(self.scroll)
 
     def update(self, timeline: List[Tuple[int, Optional[int], str, str, str]], num_cores: int = 1):
-        self.draw_widget.update_timeline(timeline, num_cores)
-        # Desplazarse automáticamente hacia la derecha
         hbar = self.scroll.horizontalScrollBar()
-        hbar.setValue(hbar.maximum())
+        # Verificar si estábamos en el extremo derecho antes de actualizar los datos
+        is_at_end = hbar.value() >= hbar.maximum() - 10
+
+        self.draw_widget.update_timeline(timeline, num_cores)
+        
+        # Si estábamos en el extremo, seguir anclados a la derecha tras recalcular el layout
+        if is_at_end:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: hbar.setValue(hbar.maximum()))

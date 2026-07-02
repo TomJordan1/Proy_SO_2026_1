@@ -137,6 +137,11 @@ class GanttWidget(QWidget):
         layout.addWidget(self.scroll)
 
     def update_gantt(self, timeline: List[Dict[str, Any]], current_tick: int):
-        self.draw_widget.update_data(timeline, current_tick)
         hbar = self.scroll.horizontalScrollBar()
-        hbar.setValue(hbar.maximum())
+        is_at_end = hbar.value() >= hbar.maximum() - 10
+
+        self.draw_widget.update_data(timeline, current_tick)
+        
+        if is_at_end:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: hbar.setValue(hbar.maximum()))
