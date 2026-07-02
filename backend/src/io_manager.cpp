@@ -4,7 +4,7 @@
 #include <cmath>
 
 // ─── Static RNG ──────────────────────────────────────────────────────────────
-static std::mt19937 ioRng(std::random_device{}());
+static std::mt19937 ioRng(42);
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 IOManager::IOManager(const std::vector<IODeviceConfig>& configs, double freqMultiplier)

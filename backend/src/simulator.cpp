@@ -5,7 +5,7 @@
 #include <random>
 
 // ─── static RNG for random IO assignment ─────────────────────────────────────
-static std::mt19937 simRng(std::random_device{}());
+static std::mt19937 simRng(42);
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 Simulator::Simulator(const SimConfig& cfg)
