@@ -716,6 +716,16 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(True)
         self.btn_pause.setEnabled(False)
 
+        # Get the actual tick displayed in the UI to avoid +1 offset bugs
+        tick_to_inject = 0
+        if self._playback_data and 0 <= self._playback_tick < len(self._playback_data):
+            snap = get_state_at_tick(self._playback_data, self._playback_tick, self._static_info)
+            tick_to_inject = snap.get("tick", 0)
+        elif self._playback_data:
+            # Clamped fallback
+            snap = get_state_at_tick(self._playback_data, len(self._playback_data) - 1, self._static_info)
+            tick_to_inject = snap.get("tick", 0)
+
         try:
             if os.path.exists(ESCENARIO_PATH):
                 with open(ESCENARIO_PATH, "r", encoding="utf-8") as f:
@@ -725,12 +735,20 @@ class MainWindow(QMainWindow):
 
             # Inyectar el evento de teclado en el escenario para que C++ lo lea
             events = scen.setdefault("events", [])
-            events.append({
-                "tick":   tick_actual + 1,
-                "type":   "KEYBOARD",
-                "pid":    pid,
-                "action": action,
-            })
+            
+            duplicate = False
+            for ev in events:
+                if ev.get("tick") == tick_to_inject and ev.get("pid") == pid and ev.get("action") == action:
+                    duplicate = True
+                    break
+                    
+            if not duplicate:
+                events.append({
+                    "tick":   tick_to_inject,
+                    "type":   "KEYBOARD",
+                    "pid":    pid,
+                    "action": action,
+                })
 
             with open(ESCENARIO_PATH, "w", encoding="utf-8") as f:
                 json.dump(scen, f, indent=2, ensure_ascii=False)
@@ -1191,7 +1209,8 @@ class MainWindow(QMainWindow):
         for dev in snap.get("io_devices", []):
             name = (dev.get("name") or dev.get("device_name", "")).upper()
             is_busy = bool(dev.get("is_busy")) or str(dev.get("status", "")).upper() == "BUSY"
-            if name == "KEYBOARD" and is_busy and self.clock.is_running:
+            is_resolved = bool(dev.get("resolved", False))
+            if name == "KEYBOARD" and is_busy and not is_resolved and self.clock.is_running:
                 self.clock.pause()
                 self.btn_start.setEnabled(False)   # bloquea reanudar hasta resolver
                 self.btn_pause.setEnabled(False)

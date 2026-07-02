@@ -88,6 +88,20 @@ void IOManager::cancelIO(int pid) {
     }
 }
 
+// ─── resolveIO ───────────────────────────────────────────────────────────────
+void IOManager::resolveIO(int pid) {
+    for (auto& dev : devices_) {
+        if (dev.busy && dev.current && dev.current->pid == pid) {
+            dev.current->resolved = true;
+        }
+        for (auto& req : dev.queue) {
+            if (req.pid == pid) {
+                req.resolved = true;
+            }
+        }
+    }
+}
+
 // ─── tick ────────────────────────────────────────────────────────────────────
 void IOManager::tick(std::function<void(int pid, const std::string& deviceId)> onComplete) {
     for (auto& dev : devices_) {
@@ -111,10 +125,12 @@ std::string IOManager::randomInterrupt(int pid, const std::string& processName,
     if (devices_.empty()) return "";
 
     std::uniform_int_distribution<int> devDist(0, (int)devices_.size() - 1);
-    std::uniform_int_distribution<int> durDist(minDuration, maxDuration);
 
     IODevice& dev = devices_[devDist(ioRng)];
-    int ticks = durDist(ioRng);
+    
+    // Apply configured device latency instead of random duration
+    int ticks = static_cast<int>(std::ceil(dev.latency * freqMultiplier_));
+    if (ticks < 1) ticks = 1;
 
     IORequest req;
     req.pid            = pid;

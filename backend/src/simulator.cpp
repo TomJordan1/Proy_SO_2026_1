@@ -189,7 +189,7 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
         // 11. Check for unresolved KEYBOARD IO to halt simulation
         bool unresolvedKeyboard = false;
         for (const auto& dev : io_.devices()) {
-            if (dev.id == "KEYBOARD" && dev.busy && dev.current) {
+            if (dev.id == "KEYBOARD" && dev.busy && dev.current && !dev.current->resolved) {
                 unresolvedKeyboard = true;
                 break;
             }
@@ -548,18 +548,11 @@ void Simulator::processEvents(int tick) {
                     std::to_string(ev.pid) + " (" + p->name + ") - Aborted");
             }
         } else if (ev.action == "CONTINUE") {
-            // Complete the process's IO
-            io_.cancelIO(ev.pid);
-            if (p->state == ProcessState::WAITING) {
-                p->ioDevice = std::nullopt;
-                p->state    = ProcessState::READY;
-                waitingList_.erase(
-                    std::remove(waitingList_.begin(), waitingList_.end(), p),
-                    waitingList_.end());
-                scheduler_.admit(p, readyQueues_);
-                log("[T=" + std::to_string(tick) + "] EVENT CONTINUE P" +
-                    std::to_string(ev.pid) + " (" + p->name + ")");
-            }
+            // Resolve the process's IO so it can begin ticking down its configured latency
+            io_.resolveIO(ev.pid);
+            log("[T=" + std::to_string(tick) + "] EVENT CONTINUE P" +
+                std::to_string(ev.pid) + " (" + p->name + ")");
+
         } else if (ev.action == "WAIT_FOR_SIGNAL") {
             // Block process waiting for manual signal
             if (p->state == ProcessState::RUNNING || p->state == ProcessState::READY) {

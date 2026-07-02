@@ -15,6 +15,7 @@ struct IORequest {
     int totalTicks;
     std::string parameters = "";
     IOErrorCode errorCode = IOErrorCode::NONE;
+    bool resolved = false; // Indicates if interactive IO has been acknowledged
 };
 
 // ─── IO Device ───────────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ public:
 
     // Cancel any pending IO for a process (used for CANCEL events).
     void cancelIO(int pid);
+
+    // Resolve an interactive IO, allowing it to begin ticking down its latency
+    void resolveIO(int pid);
 
     // Advance all devices by one tick.
     // Calls 'onComplete' for each process whose IO has finished.
