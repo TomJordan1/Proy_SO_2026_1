@@ -843,7 +843,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         max(2, config.total_memory_mb // 4),
+                    "osReservedMB":         min(64, max(2, config.total_memory_mb // 4)),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
