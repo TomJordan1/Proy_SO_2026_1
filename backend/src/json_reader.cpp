@@ -60,7 +60,7 @@ bool JsonReader::load(const std::string& filepath) {
                 config_.memoryMode     = parseMemoryMode(memModeStr);
                 std::string ptTypeStr  = jget<std::string>(mem, "pageTableType", "SINGLE_LEVEL");
                 config_.pageTableType  = parsePageTableType(ptTypeStr);
-                std::string swapTypeStr= jget<std::string>(mem, "swapDevice", "HDD");
+                std::string swapTypeStr= jget<std::string>(mem, "swapDeviceType", "HDD");  // matches frontend key
                 config_.swapDeviceType = parseSwapDeviceType(swapTypeStr);
                 std::string repAlgoStr = jget<std::string>(mem, "replacementAlgorithm", "FIFO");
                 config_.replacementAlgorithm = parseReplacementAlgorithm(repAlgoStr);
@@ -91,11 +91,7 @@ bool JsonReader::load(const std::string& filepath) {
                 config_.agingEnabled  = jget<bool>(ag, "enabled", false);
                 config_.agingInterval = jget<int>(ag, "interval", 20);
             }
-            if (sim.contains("autoCreate")) {
-                const auto& ac = sim["autoCreate"];
-                config_.autoCreate        = jget<bool>(ac, "enabled", false);
-                config_.autoCreateMaxTicks = jget<int>(ac, "maxTicks", 0);
-            }
+
         }
 
         // ── processes ─────────────────────────────────────────────────────

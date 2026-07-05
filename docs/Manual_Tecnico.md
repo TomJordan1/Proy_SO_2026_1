@@ -7,45 +7,56 @@ Este manual presenta la estructura de los directorios del código fuente y expli
 ### Backend (C++)
 ```text
 backend/
-├── CMakeLists.txt              # Configuración de compilación
+├── CMakeLists.txt                 # Configuración de compilación
 ├── include/
-│   └── nlohmann/               # Librería externa JSON (header-only)
+│   └── nlohmann/                  # Librería externa JSON (header-only)
 └── src/
-    ├── main.cpp                # Punto de entrada
-    ├── simulator.hpp/.cpp      # Bucle y control principal
-    ├── scheduler.hpp/.cpp      # Planificador de la CPU (6 algoritmos)
-    ├── dispatcher.hpp/.cpp     # Cambio de contexto y asignación
-    ├── memory_manager.hpp/.cpp # Gestor de memoria RAM
-    ├── io_manager.hpp/.cpp     # Gestor de dispositivos y operaciones E/S
-    ├── error_manager.hpp/.cpp  # Generador de errores
-    ├── json_reader.hpp/.cpp    # Lector del archivo de configuración
-    ├── json_writer.hpp/.cpp    # Generador de los fotogramas de salida
-    ├── pcb.hpp                 # Bloque de Control de Proceso
-    └── types.hpp               # Enumeradores y tipos de datos base
+    ├── main.cpp                   # Punto de entrada
+    ├── simulator.hpp/.cpp         # Bucle y control principal
+    ├── scheduler.hpp/.cpp         # Planificador de la CPU (6 algoritmos)
+    ├── dispatcher.hpp/.cpp        # Cambio de contexto y asignación
+    ├── memory_manager.hpp/.cpp    # Gestor de memoria contigua (Segmentación)
+    ├── paged_memory_manager.hpp/.cpp # Gestor de Memoria Virtual (Paginación)
+    ├── paged_memory.hpp/.cpp      # Estructuras de Marcos, Swap y TLB
+    ├── page_table.hpp/.cpp        # Tablas de Páginas (Simple, 2 Niveles, Inversa, Hashed)
+    ├── page_replacer.hpp/.cpp     # Algoritmos de Reemplazo (LRU, FIFO, Clock, etc.)
+    ├── io_manager.hpp/.cpp        # Gestor de dispositivos y operaciones E/S
+    ├── error_manager.hpp/.cpp     # Generador de errores
+    ├── json_reader.hpp/.cpp       # Lector del archivo de configuración
+    ├── json_writer.hpp/.cpp       # Generador de los fotogramas de salida
+    ├── pcb.hpp                    # Bloque de Control de Proceso
+    └── types.hpp                  # Enumeradores y tipos de datos base
+```
+
+### Scripts de Utilidad
+```text
+compilar_backend.bat               # Script para Windows que automatiza la compilación C++23 del backend
+iniciar_patatos.bat                # Lanzador principal automático que verifica dependencias y ejecuta el GUI
 ```
 
 ### Frontend (Python/Qt)
 ```text
 frontend/
-├── main.py                     # Punto de entrada principal
+├── main.py                        # Punto de entrada principal
 ├── simulation/
-│   ├── clock.py                # Reloj de la simulación (QTimer)
-│   ├── config.py               # Estructuras de datos de hardware
-│   └── paths.py                # Rutas de los archivos JSON
+│   ├── clock.py                   # Reloj de la simulación (QTimer)
+│   ├── config.py                  # Estructuras de datos de hardware
+│   └── paths.py                   # Rutas de los archivos JSON
 └── ui/
-    ├── styles.py               # Tema visual oscuro
-    ├── config_dialog.py        # Ventana de configuración inicial
-    ├── main_window.py          # Ventana principal del reproductor
-    └── widgets/                # Componentes de la interfaz
-        ├── cpu_widget.py       # Interfaz de los núcleos
-        ├── memory_widget.py    # Gráfico de uso de memoria
-        ├── io_widget.py        # Paneles de estado de los periféricos
-        ├── queue_widget.py     # Listas de procesos listos y bloqueados
-        ├── pcb_table.py        # Tabla de procesos
-        ├── pcb_detail_dialog.py# Ventana con diagrama de estados
-        ├── metrics_widget.py   # Barras e indicadores de rendimiento
-        ├── timeline_widget.py  # Diagrama de Gantt
-        └── log_widget.py       # Consola de registro
+    ├── styles.py                  # Tema visual oscuro
+    ├── config_dialog.py           # Ventana de configuración inicial
+    ├── main_window.py             # Ventana principal del reproductor
+    └── widgets/                   # Componentes de la interfaz
+        ├── cpu_widget.py          # Interfaz de los núcleos
+        ├── memory_widget.py       # Gráfico de uso de memoria RAM y Swap
+        ├── io_widget.py           # Paneles de estado de los periféricos
+        ├── queue_widget.py        # Listas de procesos listos y bloqueados
+        ├── pcb_table.py           # Tabla de procesos
+        ├── pcb_detail_dialog.py   # Ventana con diagrama de estados
+        ├── metrics_widget.py      # Barras e indicadores de rendimiento
+        ├── timeline_widget.py     # Diagrama de Gantt
+        ├── gantt_widget.py        # Módulo auxiliar para renderizado del Gantt
+        └── log_widget.py          # Consola de registro
 ```
 
 ## 2. Funciones y Componentes del Backend
@@ -53,7 +64,7 @@ frontend/
 ### Componente `Simulator`
 | Función | Descripción |
 | :--- | :--- |
-| `run()` | Ejecuta el bucle principal de la simulación. Se detiene si hay un evento interactivo de E/S pendiente. |
+| `run()` | Ejecuta el bucle principal de la simulación. Se detiene si hay un evento interactivo de E/S pendiente o para resolver un Page Fault. |
 | `admitNewProcesses()` | Revisa y admite los procesos que llegan en el tick actual. |
 | `processIOCompletions()` | Comprueba si alguna operación de E/S ha finalizado. |
 | `dispatchCPUs()` | Asigna los núcleos de CPU a los procesos. |
@@ -61,6 +72,14 @@ frontend/
 | `checkErrors()` | Determina si ocurre un error en el tick actual basado en la probabilidad configurada. |
 | `terminateProcess()` | Libera la memoria y recursos de un proceso que ha finalizado. |
 | `buildSnapshot()` | Genera una copia del estado actual para que sea guardada por JSON_writer. |
+
+### Componentes de Memoria Virtual (MMU y Paginación)
+| Función | Descripción |
+| :--- | :--- |
+| `allocate()` | En modo paginado, distribuye el proceso en múltiples páginas de 4KB y le asigna entradas en su respectiva Tabla de Páginas. |
+| `translateAddress()` | Orquesta la traducción de direcciones virtuales. Consulta primero la TLB; si falla, consulta la Tabla de Páginas en RAM. |
+| `handlePageFault()` | Administra la falta de una página en RAM. Envía el proceso a estado `BLOCKED_PAGEFAULT`, simula la latencia de traer la página del Swap y actualiza las tablas al finalizar. |
+| `selectVictimPage()` | Utiliza el algoritmo de reemplazo seleccionado (ej. Clock, LRU, NRU) para desalojar una página al Swap si la RAM física está llena. |
 
 ### Componente `Scheduler`
 | Función | Descripción |
@@ -76,16 +95,6 @@ frontend/
 | `contextSwitch()` | Intercambia el estado entre el proceso saliente y el entrante. |
 | `tick()` | Reduce el contador asociado al tiempo de overhead del cambio de contexto. |
 
-### Componente `MemoryManager`
-| Función | Descripción |
-| :--- | :--- |
-| `allocate()` | Asigna memoria a un proceso utilizando la estrategia configurada (First/Best/Worst Fit). |
-| `free()` | Marca la memoria de un proceso como libre. |
-| `findFreeBlock()` | Busca un bloque de memoria disponible según la estrategia. |
-| `splitBlock()` | Divide un bloque libre si es mayor al tamaño necesario. |
-| `mergeAdjacentFree()` | Une particiones de memoria contiguas que están libres. |
-| `stats()` | Calcula estadísticas de uso y fragmentación de memoria. |
-
 ### Componente `IOManager`
 | Función | Descripción |
 | :--- | :--- |
@@ -95,8 +104,12 @@ frontend/
 | `tick()` | Reduce el tiempo restante de las operaciones de E/S activas. |
 | `randomInterrupt()` | Genera una operación asíncrona en procesos limitados por E/S. |
 
-### Componente `ErrorManager`
-| Función | Descripción |
-| :--- | :--- |
-| `tryInjectError()` | Evalúa de manera aleatoria si se produce un error en el sistema. |
-| `errorRate()` | Devuelve el total de errores acumulados. |
+## 3. Herramientas de Pruebas y Benchmarking
+
+El sistema incluye una herramienta integrada en la interfaz gráfica (botón **Exportar Reporte**) para ejecutar simulaciones de manera automatizada y generar métricas comparativas entre los distintos algoritmos de CPU y estrategias de memoria. 
+
+Al invocarlo:
+1. El backend (`simulator.exe`) es invocado utilizando la bandera especial `-b` o `--batch`. Este modo "batch" instruye al simulador en C++ a resolver automáticamente todas las interrupciones interactivas (como peticiones de teclado) sin detener la ejecución.
+2. Se inhabilitan temporalmente los periféricos interactivos en el JSON de entrada para prevenir bloqueos innecesarios.
+3. Se ejecutan internamente múltiples instancias del simulador limitando el tiempo máximo de ejecución (`-t 50000`).
+4. Al finalizar cada corrida, el script en Python extrae directamente del `output.json` los indicadores finales (Uso de CPU, tiempo de espera, respuesta, fragmentación máxima, etc.) y genera un documento PDF estructurado de rigor académico.

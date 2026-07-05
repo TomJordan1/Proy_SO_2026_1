@@ -22,13 +22,13 @@ Proy_SO_2026_1/
 ├── backend/                     # Motor de la lógica interna hecho en C++
 ├── docs/                        # Documentación adicional, informes o manuales del proyecto
 ├── frontend/                    # Constructor del input y del GUI hecho en Python
-└── shared_data/                 # Archivos json de nexo entre frontend y backend (generado cuando se corre el main.py)
+├── iniciar_patatos.bat          # Lanzador automático (instala dependencias y compila si es necesario)
+└── shared_data/                 # Archivos input.json y output.json que unen el frontend y el backend
 ```
 
 ```text
 backend/
 ├── CMakeLists.txt               # Configuración de compilación
-├── escenario_modelo.json        # Escenario de prueba
 ├── include/
 │   └── nlohmann/                # Librería JSON (header-only)
 └── src/
@@ -36,7 +36,11 @@ backend/
     ├── simulator.hpp/.cpp       # Orquestador principal
     ├── scheduler.hpp/.cpp       # Planificador (6 algoritmos)
     ├── dispatcher.hpp/.cpp      # Despachador (cambio de contexto)
-    ├── memory_manager.hpp/.cpp  # Gestor de memoria
+    ├── memory_manager.hpp/.cpp  # Gestor de memoria contigua
+    ├── paged_memory_manager.hpp/.cpp # Gestor de memoria paginada
+    ├── paged_memory.hpp/.cpp    # Memoria virtual y Swap
+    ├── page_table.hpp/.cpp      # Tablas de páginas y TLB
+    ├── page_replacer.hpp/.cpp   # Algoritmos de reemplazo de páginas
     ├── io_manager.hpp/.cpp      # Gestor de E/S
     ├── error_manager.hpp/.cpp   # Inyección de errores
     ├── json_reader.hpp/.cpp     # Parser de entrada JSON
@@ -50,11 +54,12 @@ frontend/
 ├── main.py                      # Punto de entrada
 ├── simulation/
 │   ├── clock.py                 # Reloj de simulación (QTimer)
-│   └── config.py                # Configuración de hardware
+│   ├── config.py                # Configuración de hardware
+│   └── paths.py                 # Resolutor de rutas relativas absolutas
 └── ui/
     ├── styles.py                # Tema visual oscuro (QSS)
     ├── config_dialog.py         # Diálogo de configuración (5 pestañas)
-    ├── main_window.py           # Ventana principal (orquestador UI)
+    ├── main_window.py           # Ventana principal y generador de reportes PDF
     └── widgets/
         ├── cpu_widget.py        # Panel de núcleos CPU
         ├── memory_widget.py     # Mapa visual de memoria
@@ -63,6 +68,7 @@ frontend/
         ├── pcb_table.py         # Tabla de procesos
         ├── pcb_detail_dialog.py # Diagrama de 5 estados animado
         ├── metrics_widget.py    # Métricas de rendimiento
-        ├── timeline_widget.py   # Diagrama de Gantt
+        ├── timeline_widget.py   # Diagrama de Gantt clásico
+        ├── gantt_widget.py      # Diagrama de Gantt optimizado
         └── log_widget.py        # Log de consola
 ```

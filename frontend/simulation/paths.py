@@ -1,4 +1,5 @@
 import os
+import sys
 
 # Directorio raíz del repositorio
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,4 +17,5 @@ ESCENARIO_PATH = os.path.join(SHARED_DATA_DIR, "input.json")
 OUTPUT_PATH = os.path.join(SHARED_DATA_DIR, "output.json")
 
 # Ejecutable del simulador
-SIMULATOR_EXE = os.path.join(BACKEND_DIR, "simulator.exe")
+exe_extension = ".exe" if sys.platform == "win32" else ""
+SIMULATOR_EXE = os.path.join(BACKEND_DIR, f"simulator{exe_extension}")
