@@ -1111,6 +1111,20 @@ class MainWindow(QMainWindow):
             
             html = "<h1>Reporte de Simulaci&oacute;n: Benchmarks de Rendimiento</h1>"
             
+            hw = base_scenario.get("hardware", {})
+            cpu_cores = hw.get("cpu", {}).get("numCores", 1)
+            mem = hw.get("memory", {})
+            total_mem = mem.get("totalMB", 1024)
+            os_mem = mem.get("osReservedMB", 64)
+            
+            html += "<h2>Configuraci&oacute;n de Hardware</h2>"
+            html += "<ul>"
+            html += f"<li><b>N&uacute;cleos de CPU:</b> {cpu_cores}</li>"
+            html += f"<li><b>Memoria RAM Total:</b> {total_mem} MB</li>"
+            html += f"<li><b>Memoria Reservada SO:</b> {os_mem} MB</li>"
+            html += f"<li><b>Total de Procesos Evaluados:</b> {len(base_scenario.get('processes', []))}</li>"
+            html += "</ul><br>"
+            
             if original_mode == "PAGED":
                 html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
                 html += "<b>NOTA:</b> El escenario base usaba <b>Memoria Paginada</b>. Para estas pruebas, se forzó internamente a <b>CONTIGUA</b>.</p>"
