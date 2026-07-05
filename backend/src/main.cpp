@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
     std::string inputFile = "../shared_data/input.json";
     std::string outputFile = "../shared_data/output.json";
     int maxTicks = 200;
+    bool batchMode = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -17,11 +18,14 @@ int main(int argc, char *argv[]) {
         else if ((arg == "-o" || arg == "--output") && i + 1 < argc) outputFile = argv[++i];
         else if ((arg == "-t" || arg == "--ticks") && i + 1 < argc)
             maxTicks = std::stoi(argv[++i]);
+        else if (arg == "-b" || arg == "--batch")
+            batchMode = true;
         else if (arg == "-h" || arg == "--help") {
             std::cout << "Usage: simulator [options]\n"
                       << "  -i <file>   Input JSON scenario (default: escenario_modelo.json)\n"
                       << "  -o <file>   Output JSON file (default: output.json)\n"
-                      << "  -t <n>      Maximum ticks to simulate (default: 200)\n";
+                      << "  -t <n>      Maximum ticks to simulate (default: 200)\n"
+                      << "  -b, --batch Run in batch mode (auto-resolves keyboard IO)\n";
             return 0;
         }
     }
@@ -51,7 +55,9 @@ int main(int argc, char *argv[]) {
     JsonWriter writer(cfg.name, algoToString(cfg.scheduler), cfg.totalMemoryMB, cfg.numCores);
 
     // ── Run simulation ───────────────────────────────────────────────────────
-    Simulator sim(cfg);
+    SimConfig myCfg = cfg;
+    myCfg.batchMode = batchMode;
+    Simulator sim(myCfg);
     sim.loadProcesses(reader.processes());
 
     std::cout << "Running simulation...\n";

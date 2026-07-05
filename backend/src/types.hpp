@@ -290,6 +290,7 @@ struct SimConfig {
     bool agingEnabled = false;
     int agingInterval = 20;
     double cpuBoundRatio = 0.5;
+    bool batchMode = false;
 
     // Events
     std::vector<SimEvent> events;

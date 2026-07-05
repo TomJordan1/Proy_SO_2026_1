@@ -190,8 +190,14 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
         bool unresolvedKeyboard = false;
         for (const auto& dev : io_.devices()) {
             if (dev.id == "KEYBOARD" && dev.busy && dev.current && !dev.current->resolved) {
-                unresolvedKeyboard = true;
-                break;
+                if (cfg_.batchMode) {
+                    // Auto-resolve keyboard interrupts in batch mode
+                    const_cast<IODevice&>(dev).current->resolved = true;
+                    log("[T=" + std::to_string(tick) + "] Auto-resolved KEYBOARD interrupt in batch mode.");
+                } else {
+                    unresolvedKeyboard = true;
+                    break;
+                }
             }
         }
         if (unresolvedKeyboard) {

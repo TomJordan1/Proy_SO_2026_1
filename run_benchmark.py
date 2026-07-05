@@ -20,7 +20,7 @@ def run_sim(scheduler, mem_strategy):
     with open(input_path, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2)
         
-    subprocess.run([simulator_exe, "-i", input_path, "-o", output_path, "-t", "5000"], capture_output=True)
+    subprocess.run([simulator_exe, "-i", input_path, "-o", output_path, "-t", "5000", "-b"], capture_output=True)
     
     with open(output_path, 'r', encoding='utf-8') as f:
         out_data = json.load(f)

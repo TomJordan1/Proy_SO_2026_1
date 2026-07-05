@@ -1015,7 +1015,7 @@ class MainWindow(QMainWindow):
                 json.dump(scenario, f, indent=2)
             
             try:
-                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"], cwd=BACKEND_DIR)
+                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000", "-b"], cwd=BACKEND_DIR)
                 while process.poll() is None:
                     QCoreApplication.processEvents()
                     time.sleep(0.05)
@@ -1067,7 +1067,7 @@ class MainWindow(QMainWindow):
                 json.dump(scenario, f, indent=2)
                 
             try:
-                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"], cwd=BACKEND_DIR)
+                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000", "-b"], cwd=BACKEND_DIR)
                 while process.poll() is None:
                     QCoreApplication.processEvents()
                     time.sleep(0.05)
