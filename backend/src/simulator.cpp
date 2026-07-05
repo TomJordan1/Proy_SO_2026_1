@@ -195,8 +195,8 @@ void Simulator::run(int maxTicks, JsonWriter& writer) {
             }
         }
         if (unresolvedKeyboard) {
-            log("[T=" + std::to_string(tick) + "] KEYBOARD interrupt bypassed for benchmark.");
-            // break;
+            log("[T=" + std::to_string(tick) + "] HALTING for KEYBOARD interrupt (awaiting user action).");
+            break;
         }
 
         // Early exit if all done
