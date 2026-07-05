@@ -100,3 +100,12 @@ frontend/
 | :--- | :--- |
 | `tryInjectError()` | Evalúa de manera aleatoria si se produce un error en el sistema. |
 | `errorRate()` | Devuelve el total de errores acumulados. |
+
+## 3. Herramientas de Pruebas y Benchmarking
+
+El repositorio incluye el script `run_benchmark.py` ubicado en la raíz. Su objetivo es ejecutar simulaciones de manera automatizada ("headless" o sin interfaz gráfica) para obtener métricas comparativas entre los distintos algoritmos de CPU y estrategias de memoria. 
+
+Al invocarlo:
+1. Sobreescribe temporalmente el archivo `shared_data/input.json` con diferentes configuraciones de planificadores (FCFS, SJF, SRTF, RR, Priority) y de gestión de memoria (FIRST_FIT, BEST_FIT, WORST_FIT).
+2. Limpia los eventos interactivos (como los de teclado) para evitar pausas. En el código fuente del motor de simulación (`simulator.cpp`) se omite la interrupción interactiva.
+3. Extrae directamente del `output.json` los indicadores finales (Uso de CPU, tiempo de espera, respuesta, fragmentación máxima, etc.) y los imprime en consola en formato tabular.

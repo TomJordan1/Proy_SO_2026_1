@@ -22,13 +22,13 @@ Proy_SO_2026_1/
 ├── backend/                     # Motor de la lógica interna hecho en C++
 ├── docs/                        # Documentación adicional, informes o manuales del proyecto
 ├── frontend/                    # Constructor del input y del GUI hecho en Python
-└── shared_data/                 # Archivos json de nexo entre frontend y backend (generado cuando se corre el main.py)
+├── run_benchmark.py             # Script para ejecutar simulaciones y benchmarks sin interfaz gráfica
+└── shared_data/                 # Archivos input.json y output.json que unen el frontend y el backend
 ```
 
 ```text
 backend/
 ├── CMakeLists.txt               # Configuración de compilación
-├── escenario_modelo.json        # Escenario de prueba
 ├── include/
 │   └── nlohmann/                # Librería JSON (header-only)
 └── src/

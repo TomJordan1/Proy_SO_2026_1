@@ -50,4 +50,9 @@ Para ejecutar el simulador completo con su interfaz de usuario, abre una termina
 cd frontend
 python main.py
 ```
-Aparecerá el menú de configuración principal, desde el cual la interfaz se encargará de invocar al ejecutable C++ automáticamente en segundo plano.
+## 6. Pruebas y Benchmarking Automatizado
+Si quieres realizar un análisis de rendimiento comparando algoritmos (FCFS, SJF, SRTF, RR, Priority) y estrategias de memoria sin abrir la interfaz gráfica, usa el script de benchmarking en la raíz del proyecto:
+```bash
+python run_benchmark.py
+```
+Este script configurará temporalmente los archivos JSON, ejecutará el motor en segundo plano y te mostrará tablas con métricas (como uso de CPU, tiempos de espera promedio y fragmentación máxima) en tu consola.
