@@ -678,8 +678,8 @@ class MemoryWidget(QWidget):
             
             self._swap_bar.set_values(used_swap * 4.0 / 1024.0, max_swap * 4.0 / 1024.0)
             
-            # Dinámicamente refrescar el inspector si está abierto
-            if hasattr(self, "_vm_dialog") and self._vm_dialog.isVisible():
+            # Dinámicamente refrescar las tablas si están visibles
+            if hasattr(self, "_vm_tabs") and self._vm_tabs.isVisible():
                 self._refresh_vm_dialog()
             
             free_pages = total_frames - os_pages - used_pages
