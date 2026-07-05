@@ -91,11 +91,7 @@ bool JsonReader::load(const std::string& filepath) {
                 config_.agingEnabled  = jget<bool>(ag, "enabled", false);
                 config_.agingInterval = jget<int>(ag, "interval", 20);
             }
-            if (sim.contains("autoCreate")) {
-                const auto& ac = sim["autoCreate"];
-                config_.autoCreate        = jget<bool>(ac, "enabled", false);
-                config_.autoCreateMaxTicks = jget<int>(ac, "maxTicks", 0);
-            }
+
         }
 
         // ── processes ─────────────────────────────────────────────────────

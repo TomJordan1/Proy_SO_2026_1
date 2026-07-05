@@ -208,7 +208,7 @@ class ConfigDialog(QDialog):
         g.addWidget(_hint(
             "FCFS: simple, no preemptivo. SJF: óptimo si se conocen los bursts. "
             "SRTF: apropiativo, mínimo waiting. Priority: con aging anti-starvation. "
-            "RR: más justo, configura el quantum. MLFQ: (beta) degradación dinámica."
+            "RR: más justo, configura el quantum."
         ), 5, 0, 1, 3)
 
         g.setRowStretch(6, 1)
@@ -416,35 +416,10 @@ class ConfigDialog(QDialog):
         g.addWidget(self.spin_aging, 4, 1)
         g.addWidget(_lbl("Cada N ticks esperando, la prioridad sube 1"), 4, 2)
 
-        # Auto-crear
-        self.chk_auto = QCheckBox("Auto-crear procesos durante la simulación")
-        self.chk_auto.setChecked(False)
-        g.addWidget(self.chk_auto, 5, 0, 1, 3)
-
-        # Max ticks (Solo relevante cuando auto_create está activado.)
-        self.max_ticks_row = QWidget()
-        mt_layout = QHBoxLayout(self.max_ticks_row)
-        mt_layout.setContentsMargins(20, 0, 0, 0)
-        mt_layout.setSpacing(8)
-        mt_layout.addWidget(_lbl("  Detener creación en tick:"))
-        self.spin_max_ticks = QSpinBox()
-        self.spin_max_ticks.setRange(0, 10000)
-        self.spin_max_ticks.setValue(500)
-        self.spin_max_ticks.setFixedWidth(90)
-        self.spin_max_ticks.setSpecialValueText("Sin límite")
-        mt_layout.addWidget(self.spin_max_ticks)
-        mt_layout.addWidget(_lbl("  (0 = sin límite; la simulación acaba cuando terminan todos los procesos)",
-                                 Colors.TEXT_MUTED, 8))
-        mt_layout.addStretch()
-        g.addWidget(self.max_ticks_row, 6, 0, 1, 3)
-        self.max_ticks_row.setEnabled(False)
-        self.chk_auto.toggled.connect(self.max_ticks_row.setEnabled)
-
         g.addWidget(_hint(
             "El aging evita starvation: procesos que esperan mucho ganan prioridad. "
-            "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta. "
-            "Si auto-crear está activo, define un límite de ticks para que la simulación pueda terminar."
-        ), 7, 0, 1, 3)
+            "Con quantum pequeño, habrá más context switches y mejor tiempo de respuesta."
+        ), 5, 0, 1, 3)
 
         g.setRowStretch(8, 1)
         return w
@@ -669,8 +644,6 @@ class ConfigDialog(QDialog):
         self.spin_io_mult.setValue(1.0)
         self.chk_aging.setChecked(True)
         self.spin_aging.setValue(20)
-        self.chk_auto.setChecked(False)
-        self.spin_max_ticks.setValue(500)
         self.spin_proc_count.setValue(20)
         self.spin_cpu_ratio.setValue(40)
         self.radio_sys.setChecked(True)
@@ -734,8 +707,6 @@ class ConfigDialog(QDialog):
             io_freq_multiplier=self.spin_io_mult.value(),
             aging_enabled=self.chk_aging.isChecked(),
             aging_interval=self.spin_aging.value(),
-            auto_create=self.chk_auto.isChecked(),
-            max_ticks=self.spin_max_ticks.value() if self.chk_auto.isChecked() else 0,
             # Procesos
             initial_processes=self.spin_proc_count.value() if self.radio_sys.isChecked() else len(manual_procs),
             cpu_bound_ratio=self.spin_cpu_ratio.value() / 100.0,
@@ -842,7 +813,7 @@ class ConfigDialog(QDialog):
         now = datetime.now()
         data = {
             "metadata": {
-                "name":                    "Simulación OS Completa - Proyecto Final",
+                "name":                    "Simulacion OS Completa",
                 "executionDate":           now.strftime("%Y-%m-%d"),
                 "executionTime":           now.strftime("%H:%M:%S"),
                 "realTimeTrackingEnabled": False,
@@ -889,10 +860,6 @@ class ConfigDialog(QDialog):
                 "aging": {
                     "enabled":  config.aging_enabled,
                     "interval": config.aging_interval,
-                },
-                "autoCreate": {
-                    "enabled":  config.auto_create,
-                    "maxTicks": config.max_ticks,    # 0 = sin límite
                 },
                 "cpuBoundRatio":         config.cpu_bound_ratio,
             },

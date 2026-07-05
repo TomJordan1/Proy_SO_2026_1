@@ -129,16 +129,7 @@ class HardwareConfig:
     """Cada cuántos ticks en READY se incrementa prioridad (anti-starvation)."""
 
     # ── Procesos ──────────────────────────────────────────────────────────────
-    auto_create: bool = True
-    """Si el sistema crea procesos automáticamente durante la simulación."""
 
-    max_ticks: int = 0
-    """
-    Límite de ticks para la simulación (0 = sin límite).
-    Cuando auto_create=True y este valor > 0, el engine deja de crear
-    nuevos procesos al alcanzar este tick, permitiendo que la simulación
-    termine naturalmente cuando todos los procesos existentes finalicen.
-    """
 
     initial_processes: int = 10
     """Número de procesos a cargar al inicio (0 si es modo manual)."""

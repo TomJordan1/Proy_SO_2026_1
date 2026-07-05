@@ -289,8 +289,6 @@ struct SimConfig {
     double ioFreqMultiplier = 1.0;
     bool agingEnabled = false;
     int agingInterval = 20;
-    bool autoCreate = false;
-    int autoCreateMaxTicks = 0;
     double cpuBoundRatio = 0.5;
 
     // Events
