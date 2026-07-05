@@ -1039,7 +1039,9 @@ class MainWindow(QMainWindow):
                                     last_snap = frame
                                     break
                             if last_snap and "metrics" in last_snap:
-                                results_cpu[algo] = dict(last_snap["metrics"])
+                                res_dict = dict(last_snap["metrics"])
+                                res_dict["total_ticks"] = frame.get("tick", last_snap.get("tick", 0))
+                                results_cpu[algo] = res_dict
                     except: pass
             try:
                 os.remove(temp_input)
@@ -1092,6 +1094,7 @@ class MainWindow(QMainWindow):
                                 res_dict = dict(last_snap["metrics"])
                                 if "memory" in last_snap and "stats" in last_snap["memory"]:
                                     res_dict.update(last_snap["memory"]["stats"])
+                                res_dict["total_ticks"] = frame.get("tick", last_snap.get("tick", 0))
                                 results_mem[strategy] = res_dict
                     except: pass
             try:
@@ -1114,10 +1117,10 @@ class MainWindow(QMainWindow):
             
             # --- 6.1 Resultados CPU ---
             html += "<h2>6.1 Resultados de Pol&iacute;ticas de Planificaci&oacute;n de CPU</h2>"
-            html += f"<p>Se evaluaron los 4 algoritmos de planificaci&oacute;n manteniendo fija la estrategia de memoria ({base_mem_strategy}) y desactivando los eventos manuales para permitir una ejecuci&oacute;n ininterrumpida.</p>"
+            html += f"<p>Se evaluaron los 4 algoritmos de planificaci&oacute;n manteniendo fija la estrategia de memoria ({base_mem_strategy}) y desactivando los eventos manuales para permitir una ejecuci&oacute;n ininterrumpida. <b>Adicionalmente, los procesos originalmente marcados como interactivos fueron evaluados transitoriamente como CPU-Bound para evitar el bloqueo del sistema operativo por solicitudes de teclado pendientes en este benchmark de alto rendimiento.</b></p>"
             html += "<b>Tabla 12</b><br><i>M&eacute;tricas obtenidas de los algoritmos de planificaci&oacute;n implementados</i><br>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
-            html += "<tr style='background-color:#f2f2f2;'><th>Algoritmo</th><th>Uso de CPU (%)</th><th>T. Espera Promedio</th><th>T. Respuesta Promedio</th><th>T. Retorno Promedio</th></tr>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Algoritmo</th><th>Total Ticks</th><th>Uso de CPU (%)</th><th>T. Espera Promedio</th><th>T. Respuesta Promedio</th><th>T. Retorno Promedio</th></tr>"
             
             best_turnaround = float('inf')
             best_turn_algo = ""
@@ -1131,14 +1134,15 @@ class MainWindow(QMainWindow):
             for algo in schedulers:
                 m = results_cpu.get(algo)
                 if not m:
-                    html += f"<tr><td>{algo}</td><td colspan='4'>N/A</td></tr>"
+                    html += f"<tr><td>{algo}</td><td colspan='5'>N/A</td></tr>"
                     continue
                 cpu_use = m.get("cpu_utilization_percent", 0.0)
                 wait_t = m.get("avg_waiting_time", 0.0)
                 resp_t = m.get("avg_response_time", 0.0)
                 turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
+                tot_ticks = m.get("total_ticks", 0)
                 
-                html += f"<tr><td>{algo}</td><td>{cpu_use:.2f}</td><td>{wait_t:.2f}</td><td>{resp_t:.2f}</td><td>{turn_t:.2f}</td></tr>"
+                html += f"<tr><td>{algo}</td><td>{tot_ticks}</td><td>{cpu_use:.2f}</td><td>{wait_t:.2f}</td><td>{resp_t:.2f}</td><td>{turn_t:.2f}</td></tr>"
                 
                 if turn_t < best_turnaround and turn_t > 0: best_turnaround = turn_t; best_turn_algo = algo
                 if wait_t < best_wait and wait_t > 0: best_wait = wait_t; best_wait_algo = algo
@@ -1155,10 +1159,10 @@ class MainWindow(QMainWindow):
             
             # --- 6.2 Resultados Memoria ---
             html += "<h2>6.2 Resultados de Estrategias de Memoria</h2>"
-            html += f"<p>Manteniendo el algoritmo de CPU en {base_cpu_algo}, se evaluaron las tres estrategias de asignaci&oacute;n para la carga de procesos. El sistema se configur&oacute; con {base_scenario.get('hardware', {}).get('memory', {}).get('totalMB', 1024)} MB totales.</p>"
+            html += f"<p>Manteniendo el algoritmo de CPU en {base_cpu_algo}, se evaluaron las tres estrategias de asignaci&oacute;n para la carga de procesos. El sistema se configur&oacute; con {base_scenario.get('hardware', {}).get('memory', {}).get('totalMB', 1024)} MB totales. <b>Adicionalmente, los procesos interactivos fueron transitoriamente transformados a CPU-Bound.</b></p>"
             html += "<b>Tabla 13</b><br><i>M&eacute;tricas obtenidas de las estrategias de memoria implementadas</i><br>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
-            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Uso de CPU (%)</th><th>Fragmentaci&oacute;n Max (%)</th><th>T. Retorno Promedio</th></tr>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Total Ticks</th><th>Uso de CPU (%)</th><th>Fragmentaci&oacute;n Max (%)</th><th>T. Retorno Promedio</th></tr>"
             
             best_frag = float('inf')
             best_frag_strat = ""
@@ -1168,13 +1172,14 @@ class MainWindow(QMainWindow):
             for strategy in strategies:
                 m = results_mem.get(strategy)
                 if not m:
-                    html += f"<tr><td>{strategy}</td><td colspan='3'>N/A</td></tr>"
+                    html += f"<tr><td>{strategy}</td><td colspan='4'>N/A</td></tr>"
                     continue
                 cpu_use = m.get("cpu_utilization_percent", 0.0)
                 frag = m.get("fragmentation_percent", 0.0)
                 turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
+                tot_ticks = m.get("total_ticks", 0)
                 
-                html += f"<tr><td>{strategy}</td><td>{cpu_use:.2f}</td><td>{frag:.2f}</td><td>{turn_t:.2f}</td></tr>"
+                html += f"<tr><td>{strategy}</td><td>{tot_ticks}</td><td>{cpu_use:.2f}</td><td>{frag:.2f}</td><td>{turn_t:.2f}</td></tr>"
                 
                 if first_frag == -1: first_frag = frag
                 elif abs(frag - first_frag) > 0.1: identical_results = False
