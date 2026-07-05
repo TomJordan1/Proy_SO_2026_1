@@ -289,7 +289,8 @@ class ConfigDialog(QDialog):
         
         g_paged.addWidget(_lbl("Tipo de Swap:"), 2, 0)
         self.combo_swap_type = QComboBox()
-        self.combo_swap_type.addItems(["HDD", "SSD"])
+        self.combo_swap_type.addItem("HDD  (lectura: 15 ticks, escritura: 15 ticks)", "HDD")
+        self.combo_swap_type.addItem("SSD  (lectura: 3 ticks, escritura: 5 ticks)",  "SSD")
         g_paged.addWidget(self.combo_swap_type, 2, 1)
         
         g_paged.addWidget(_lbl("Tamaño Swap (MB):"), 3, 0)
@@ -703,7 +704,7 @@ class ConfigDialog(QDialog):
             memory_mode="PAGED" if self.chk_paged.isChecked() else "CONTIGUOUS",
             page_table_type=self.combo_pt.currentText(),
             replacement_algorithm=self.combo_repl.currentText(),
-            swap_device_type=self.combo_swap_type.currentText(),
+            swap_device_type=self.combo_swap_type.currentData(),
             swap_size_mb=self.spin_swap.value(),
             tlb_size=self.spin_tlb.value(),
             # Dispositivos
