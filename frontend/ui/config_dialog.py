@@ -784,6 +784,22 @@ class ConfigDialog(QDialog):
                         break
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
+            
+            # Forzar la proporción de CPU-bound deseada por el usuario
+            import random
+            target_cpu_bound = int(len(procs) * (self.spin_cpu_ratio.value() / 100.0))
+            current_cpu_bound = [p for p in procs if p['process_type'] == 'CPU_BOUND']
+            
+            if len(current_cpu_bound) > target_cpu_bound:
+                to_convert = random.sample(current_cpu_bound, len(current_cpu_bound) - target_cpu_bound)
+                for p in to_convert:
+                    p['process_type'] = random.choice(['IO_BOUND', 'INTERACTIVE', 'SYSTEM'])
+            elif len(current_cpu_bound) < target_cpu_bound:
+                non_cpu_bound = [p for p in procs if p['process_type'] != 'CPU_BOUND']
+                to_convert = random.sample(non_cpu_bound, min(len(non_cpu_bound), target_cpu_bound - len(current_cpu_bound)))
+                for p in to_convert:
+                    p['process_type'] = 'CPU_BOUND'
+                    
             return procs
         except ImportError:
             return []
