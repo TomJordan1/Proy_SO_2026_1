@@ -60,7 +60,7 @@ bool JsonReader::load(const std::string& filepath) {
                 config_.memoryMode     = parseMemoryMode(memModeStr);
                 std::string ptTypeStr  = jget<std::string>(mem, "pageTableType", "SINGLE_LEVEL");
                 config_.pageTableType  = parsePageTableType(ptTypeStr);
-                std::string swapTypeStr= jget<std::string>(mem, "swapDevice", "HDD");
+                std::string swapTypeStr= jget<std::string>(mem, "swapDeviceType", "HDD");  // matches frontend key
                 config_.swapDeviceType = parseSwapDeviceType(swapTypeStr);
                 std::string repAlgoStr = jget<std::string>(mem, "replacementAlgorithm", "FIFO");
                 config_.replacementAlgorithm = parseReplacementAlgorithm(repAlgoStr);
