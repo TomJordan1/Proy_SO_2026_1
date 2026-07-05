@@ -1136,7 +1136,7 @@ class MainWindow(QMainWindow):
                 if not m:
                     html += f"<tr><td>{algo}</td><td colspan='5'>N/A</td></tr>"
                     continue
-                cpu_use = m.get("cpu_utilization_percent", 0.0)
+                cpu_use = m.get("cpu_utilization", m.get("cpu_utilization_percent", 0.0))
                 wait_t = m.get("avg_waiting_time", 0.0)
                 resp_t = m.get("avg_response_time", 0.0)
                 turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
@@ -1174,7 +1174,7 @@ class MainWindow(QMainWindow):
                 if not m:
                     html += f"<tr><td>{strategy}</td><td colspan='4'>N/A</td></tr>"
                     continue
-                cpu_use = m.get("cpu_utilization_percent", 0.0)
+                cpu_use = m.get("cpu_utilization", m.get("cpu_utilization_percent", 0.0))
                 frag = m.get("fragmentation_percent", 0.0)
                 turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
                 tot_ticks = m.get("total_ticks", 0)
