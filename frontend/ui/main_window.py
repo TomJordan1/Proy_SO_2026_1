@@ -1163,16 +1163,16 @@ class MainWindow(QMainWindow):
                 if resp_t < best_resp and resp_t > 0: best_resp = resp_t; best_resp_algo = algo
                 if cpu_use > best_cpu: best_cpu = cpu_use; best_cpu_algo = algo
                 
-            html += "</table><br>"
+            html += "</table>"
             
-            html += "<b>An&aacute;lisis de m&eacute;tricas de CPU:</b><br>"
+            html += "<b>An&aacute;lisis de m&eacute;tricas de CPU:</b>"
             html += f"<p><b>{best_turn_algo}</b> demostr&oacute; ser el algoritmo m&aacute;s eficiente de manera global al obtener el menor Tiempo de Retorno Promedio ({best_turnaround:.2f}). "
             html += f"En t&eacute;rminos de interactividad, <b>{best_resp_algo}</b> logr&oacute; el mejor Tiempo de Respuesta Promedio ({best_resp:.2f}), "
             html += f"mientras que <b>{best_wait_algo}</b> minimiz&oacute; el Tiempo de Espera Promedio ({best_wait:.2f}). "
             html += f"El mayor aprovechamiento del procesador lo logr&oacute; <b>{best_cpu_algo}</b> con un {best_cpu:.2f}% de Uso de CPU.</p>"
             
             # --- Resultados Memoria ---
-            html += "<h2>Resultados de Estrategias de Memoria</h2>"
+            html += "<h2 style='page-break-before: always;'>Resultados de Estrategias de Memoria</h2>"
             html += f"<p>Manteniendo el algoritmo de CPU en {base_cpu_algo}, se evaluaron las tres estrategias de asignaci&oacute;n para la carga de procesos. El sistema se configur&oacute; con {base_scenario.get('hardware', {}).get('memory', {}).get('totalMB', 1024)} MB totales. <b>Al igual que en la evaluaci&oacute;n de CPU, el perif&eacute;rico de Teclado fue deshabilitado transitoriamente.</b></p>"
             html += "<i>M&eacute;tricas obtenidas de las estrategias de memoria implementadas:</i><br>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
@@ -1202,8 +1202,8 @@ class MainWindow(QMainWindow):
                     best_frag = frag
                     best_frag_strat = strategy
             
-            html += "</table><br>"
-            html += "<b>An&aacute;lisis de m&eacute;tricas de Memoria:</b><br>"
+            html += "</table>"
+            html += "<b>An&aacute;lisis de m&eacute;tricas de Memoria:</b>"
             
             if identical_results:
                 html += "<p>Debido a que el escenario contaba con una configuraci&oacute;n donde todas las estrategias lograron satisfacer las peticiones de manera similar, "
