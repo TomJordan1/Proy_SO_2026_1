@@ -558,9 +558,9 @@ class ConfigDialog(QDialog):
         self.manual_widget.setVisible(not sys)
 
     def _update_mem_label(self, val: int):
-        os_reserved = min(64, max(2, val // 4))
+        os_reserved = max(2, val // 4)   # ¼ de la RAM total → mismo valor que se escribe al JSON
         avail = val - os_reserved
-        self.lbl_mem_total.setText(f"({avail} MB disponibles para procesos)")
+        self.lbl_mem_total.setText(f"(Reservado SO: {os_reserved} MB = ¼ del total — {avail} MB disponibles para procesos)")
         if hasattr(self, 'spin_max_proc'):
             self.spin_max_proc.setMaximum(val)
 
@@ -843,7 +843,7 @@ class ConfigDialog(QDialog):
                 "memory": {
                     "mode":                 config.memory_mode,
                     "totalMB":              config.total_memory_mb,
-                    "osReservedMB":         min(64, max(2, config.total_memory_mb // 4)),
+                    "osReservedMB":         max(2, config.total_memory_mb // 4),
                     "minSegmentMB":         config.min_segment_mb,
                     "maxProcessMB":         config.max_process_mb,
                     "allocationStrategy":   config.alloc_strategy.upper() + "_FIT",
