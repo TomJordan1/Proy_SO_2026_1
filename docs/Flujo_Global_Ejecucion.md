@@ -57,3 +57,14 @@ El simulador permite introducir interacciones y cambios mientras la animación s
 
 **Manejo de interacciones:**
 Al ocurrir cualquiera de estos eventos, Python añade un evento en el archivo `input.json` indicando el tick en que ocurrió la interacción. Seguidamente, vuelve a invocar a `simulator.exe`. El motor C++ lee el nuevo evento, recalcula la simulación a partir de ese tick (o retoma desde el inicio aplicando las nuevas reglas), y sobrescribe el archivo `output.json`. Python entonces recarga el archivo y retoma la animación de forma fluida.
+
+---
+
+## 5. Generación de Reportes (Modo Batch)
+
+Cuando el usuario selecciona "Exportar Reporte" desde el diálogo de configuración inicial, o lanza el simulador desde la consola con la bandera `-b` (`--batch`), el flujo cambia significativamente para priorizar el benchmarking automatizado:
+
+- **Ejecución Multi-Algoritmo (Headless):** En lugar de correr la simulación una sola vez, Python genera un escenario base y lanza `simulator.exe` **4 veces consecutivas**, de forma invisible (headless), iterando automáticamente a través de los algoritmos `FCFS`, `SJF`, `RR` y `Priority`.
+- **Desactivación de interactividad:** Se anulan los requerimientos de confirmación de teclado (los eventos de E/S se resuelven automáticamente tras cumplir su latencia) para que la simulación de principio a fin no se detenga.
+- **Consolidación de resultados:** Tras las 4 ejecuciones, Python recolecta las métricas consolidadas de cada iteración (Tiempos de Retorno, Tiempos de Respuesta, Uso de CPU, Penales de Page Fault, etc.) de sus respectivos `output_X.json`.
+- **Exportación a PDF:** Finalmente, Python inyecta los resultados en una plantilla HTML/CSS y genera un documento académico formal (PDF) estructurado y estilizado, prescindiendo por completo de la fase de animación visual.
