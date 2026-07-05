@@ -1149,7 +1149,7 @@ class MainWindow(QMainWindow):
                 if resp_t < best_resp and resp_t > 0: best_resp = resp_t; best_resp_algo = algo
                 if cpu_use > best_cpu: best_cpu = cpu_use; best_cpu_algo = algo
                 
-            html += "</table><p><i>Nota. Elaboraci&oacute;n propia.</i></p>"
+            html += "</table><br>"
             
             html += "<b>An&aacute;lisis de m&eacute;tricas de CPU:</b><br>"
             html += f"<p><b>{best_turn_algo}</b> demostr&oacute; ser el algoritmo m&aacute;s eficiente de manera global al obtener el menor Tiempo de Retorno Promedio ({best_turnaround:.2f}). "
@@ -1188,7 +1188,7 @@ class MainWindow(QMainWindow):
                     best_frag = frag
                     best_frag_strat = strategy
             
-            html += "</table><p><i>Nota. Elaboraci&oacute;n propia.</i></p>"
+            html += "</table><br>"
             html += "<b>An&aacute;lisis de m&eacute;tricas de Memoria:</b><br>"
             
             if identical_results:
