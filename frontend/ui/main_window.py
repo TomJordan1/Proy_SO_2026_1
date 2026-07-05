@@ -976,7 +976,11 @@ class MainWindow(QMainWindow):
                     p["memory_size"] = random.randint(10, 60)
                     p["burst_time"] = random.randint(5, 15)
                     base_scenario["processes"].append(p)
-        
+        # Convertir procesos interactivos a CPU bound para que no se bloqueen pidiendo teclado
+        for p in base_scenario.get("processes", []):
+            if p.get("process_type") == "INTERACTIVE":
+                p["process_type"] = "CPU_BOUND"
+                
         schedulers = ["FCFS", "SJF", "RR", "Priority"]
         strategies = ["FIRST_FIT", "BEST_FIT", "WORST_FIT"]
         
