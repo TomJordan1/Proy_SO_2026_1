@@ -446,8 +446,11 @@ class ConfigDialog(QDialog):
 
         # Modo sistema
         self.sys_widget = QWidget()
-        sys_layout = QHBoxLayout(self.sys_widget)
-        sys_layout.setContentsMargins(0, 0, 0, 0)
+        sys_outer_layout = QVBoxLayout(self.sys_widget)
+        sys_outer_layout.setContentsMargins(0, 0, 0, 0)
+        sys_outer_layout.setSpacing(10)
+
+        sys_layout = QHBoxLayout()
         sys_layout.addWidget(_lbl("Cantidad de procesos:"))
         self.spin_proc_count = QSpinBox()
         self.spin_proc_count.setRange(1, 30)
@@ -463,6 +466,14 @@ class ConfigDialog(QDialog):
         sys_layout.addWidget(self.spin_cpu_ratio)
         sys_layout.addWidget(_lbl("  (resto: IO/INTERACTIVE/SYSTEM)"))
         sys_layout.addStretch()
+        sys_outer_layout.addLayout(sys_layout)
+
+        sys_outer_layout.addWidget(_hint(
+            "Nota: Solo se extraen los nombres del SO real para generar una lista representativa. "
+            "El tiempo de ráfaga, tamaño de memoria, tipo y prioridad se calculan de forma aleatoria "
+            "para garantizar variabilidad y cumplir con los requisitos de la simulación."
+        ))
+
         outer.addWidget(self.sys_widget)
 
         # Modo manual
