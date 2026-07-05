@@ -1115,10 +1115,10 @@ class MainWindow(QMainWindow):
                 html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
                 html += "<b>NOTA:</b> El escenario base usaba <b>Memoria Paginada</b>. Para estas pruebas, se forzó internamente a <b>CONTIGUA</b>.</p>"
             
-            # --- 6.1 Resultados CPU ---
-            html += "<h2>6.1 Resultados de Pol&iacute;ticas de Planificaci&oacute;n de CPU</h2>"
+            # --- Resultados CPU ---
+            html += "<h2>Resultados de Pol&iacute;ticas de Planificaci&oacute;n de CPU</h2>"
             html += f"<p>Se evaluaron los 4 algoritmos de planificaci&oacute;n manteniendo fija la estrategia de memoria ({base_mem_strategy}) y desactivando los eventos manuales para permitir una ejecuci&oacute;n ininterrumpida. <b>Adicionalmente, se deshabilit&oacute; el perif&eacute;rico de Teclado transitoriamente para evitar el bloqueo del sistema operativo por solicitudes de I/O pendientes en este benchmark de alto rendimiento.</b></p>"
-            html += "<b>Tabla 12</b><br><i>M&eacute;tricas obtenidas de los algoritmos de planificaci&oacute;n implementados</i><br>"
+            html += "<i>M&eacute;tricas obtenidas de los algoritmos de planificaci&oacute;n implementados:</i><br>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
             html += "<tr style='background-color:#f2f2f2;'><th>Algoritmo</th><th>Total Ticks</th><th>Uso de CPU (%)</th><th>T. Espera Promedio</th><th>T. Respuesta Promedio</th><th>T. Retorno Promedio</th></tr>"
             
@@ -1157,10 +1157,10 @@ class MainWindow(QMainWindow):
             html += f"mientras que <b>{best_wait_algo}</b> minimiz&oacute; el Tiempo de Espera Promedio ({best_wait:.2f}). "
             html += f"El mayor aprovechamiento del procesador lo logr&oacute; <b>{best_cpu_algo}</b> con un {best_cpu:.2f}% de Uso de CPU.</p>"
             
-            # --- 6.2 Resultados Memoria ---
-            html += "<h2>6.2 Resultados de Estrategias de Memoria</h2>"
+            # --- Resultados Memoria ---
+            html += "<h2>Resultados de Estrategias de Memoria</h2>"
             html += f"<p>Manteniendo el algoritmo de CPU en {base_cpu_algo}, se evaluaron las tres estrategias de asignaci&oacute;n para la carga de procesos. El sistema se configur&oacute; con {base_scenario.get('hardware', {}).get('memory', {}).get('totalMB', 1024)} MB totales. <b>Al igual que en la evaluaci&oacute;n de CPU, el perif&eacute;rico de Teclado fue deshabilitado transitoriamente.</b></p>"
-            html += "<b>Tabla 13</b><br><i>M&eacute;tricas obtenidas de las estrategias de memoria implementadas</i><br>"
+            html += "<i>M&eacute;tricas obtenidas de las estrategias de memoria implementadas:</i><br>"
             html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
             html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Total Ticks</th><th>Uso de CPU (%)</th><th>Fragmentaci&oacute;n Max (%)</th><th>T. Retorno Promedio</th></tr>"
             
