@@ -21,14 +21,24 @@ La barra superior de la ventana principal incluye los siguientes controles:
 - **Q (Quantum)**: Campo para modificar el tamaño del quantum.
 - **Vel (Velocidad)**: Menú para ajustar la velocidad de la animación (Lento: 2s, Normal: 500ms, Rápido: 200ms, Turbo: 80ms).
 - **Mem (Memoria)**: Selector para cambiar la estrategia de asignación de memoria.
+- **Exportar Reporte**: Genera un documento PDF académico con métricas comparativas del rendimiento de los algoritmos de CPU y estrategias de memoria ejecutando la configuración actual en modo automático (batch).
 
-## 3. Interfaz Principal
-La pantalla principal se divide en varias áreas:
-- **CPU Cores**: Muestra el estado de cada núcleo (IDLE, RUNNING o SWITCHING), el proceso en ejecución, el progreso del quantum y el valor del Program Counter (PC).
-- **Colas de Listos y Bloqueados**: Muestra los procesos en espera por procesador o por periféricos.
-- **Tabla PCB**: Tabla con los datos del Bloque de Control de Proceso de todos los programas.
-- **Mapa de Memoria (RAM y Swap)**: Gráfico que representa el uso de la memoria física. Si el modo paginado está activo, verás una cuadrícula de Marcos (Frames) de 4KB y un visor adicional del almacenamiento Swap.
-- **Lupa de Memoria Virtual**: En modo paginado, podrás hacer clic en el ícono de inspección de memoria para ver en tiempo real el contenido de la TLB, la Tabla de Páginas de cada proceso (con sus bits de Validez, Referencia y Modificación) y el uso detallado del Swap.
-- **Dispositivos E/S**: Muestra el estado de cada periférico simulado. Incluye botones interactivos para confirmar o cancelar acciones cuando un dispositivo requiere intervención (como el teclado).
-- **Métricas**: Indicadores numéricos sobre el rendimiento de la CPU, tiempos de espera, fragmentación, fallos de página (Page Faults) y hits en TLB.
-- **Timeline**: Un Diagrama de Gantt que muestra el uso de los núcleos en el tiempo.
+## 3. Interfaz Principal (Pestañas)
+La pantalla principal se divide en cuatro pestañas especializadas para facilitar la lectura de la información:
+
+1. **Gestión de Procesos**:
+   - **CPU Cores**: Muestra el estado de cada núcleo (IDLE, RUNNING o SWITCHING), el proceso en ejecución, el progreso del quantum y el valor del Program Counter (PC).
+   - **Tabla PCB**: Tabla con los datos del Bloque de Control de Proceso de todos los programas.
+
+2. **Gestión de Memoria**:
+   - **Mapa de Memoria (RAM y Swap)**: Gráfico que representa el uso de la memoria física. Si el modo paginado está activo, verás una cuadrícula de Marcos (Frames) de 4KB y un visor adicional del almacenamiento Swap.
+   - **Lupa de Memoria Virtual**: En modo paginado, podrás hacer clic en el ícono de inspección de memoria para ver en tiempo real el contenido de la TLB, la Tabla de Páginas de cada proceso y el uso detallado del Swap.
+
+3. **Gestión de E/S y Rendimiento**:
+   - **Colas de Listos y Bloqueados**: Muestra los procesos en espera por procesador o por periféricos.
+   - **Dispositivos E/S**: Muestra el estado de cada periférico simulado. Incluye botones interactivos para confirmar o cancelar acciones cuando un dispositivo requiere intervención (como el teclado).
+   - **Métricas**: Indicadores numéricos sobre el rendimiento de la CPU, tiempos de espera, fragmentación, fallos de página y hits en TLB.
+
+4. **Línea de Tiempo y Registros**:
+   - **Timeline (Gantt)**: Un diagrama que muestra el uso histórico de los núcleos en el tiempo.
+   - **Consola de Registro**: Historial de eventos y logs emitidos por la simulación.

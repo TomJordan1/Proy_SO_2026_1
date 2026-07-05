@@ -32,7 +32,6 @@ backend/
 ```text
 compilar_backend.bat               # Script para Windows que automatiza la compilación C++23 del backend
 iniciar_patatos.bat                # Lanzador principal automático que verifica dependencias y ejecuta el GUI
-run_benchmark.py                   # Herramienta para simulaciones en bloque ("headless")
 ```
 
 ### Frontend (Python/Qt)
@@ -107,9 +106,10 @@ frontend/
 
 ## 3. Herramientas de Pruebas y Benchmarking
 
-El repositorio incluye el script `run_benchmark.py` ubicado en la raíz. Su objetivo es ejecutar simulaciones de manera automatizada ("headless" o sin interfaz gráfica) para obtener métricas comparativas entre los distintos algoritmos de CPU y estrategias de memoria. 
+El sistema incluye una herramienta integrada en la interfaz gráfica (botón **Exportar Reporte**) para ejecutar simulaciones de manera automatizada y generar métricas comparativas entre los distintos algoritmos de CPU y estrategias de memoria. 
 
 Al invocarlo:
-1. Sobreescribe temporalmente el archivo `shared_data/input.json` con diferentes configuraciones de planificadores (FCFS, SJF, SRTF, RR, Priority) y de gestión de memoria (FIRST_FIT, BEST_FIT, WORST_FIT).
-2. Limpia los eventos interactivos (como los de teclado) para evitar pausas. En el código fuente del motor de simulación (`simulator.cpp`) se omite la interrupción interactiva.
-3. Extrae directamente del `output.json` los indicadores finales (Uso de CPU, tiempo de espera, respuesta, fragmentación máxima, etc.) y los imprime en consola en formato tabular.
+1. El backend (`simulator.exe`) es invocado utilizando la bandera especial `-b` o `--batch`. Este modo "batch" instruye al simulador en C++ a resolver automáticamente todas las interrupciones interactivas (como peticiones de teclado) sin detener la ejecución.
+2. Se inhabilitan temporalmente los periféricos interactivos en el JSON de entrada para prevenir bloqueos innecesarios.
+3. Se ejecutan internamente múltiples instancias del simulador limitando el tiempo máximo de ejecución (`-t 50000`).
+4. Al finalizar cada corrida, el script en Python extrae directamente del `output.json` los indicadores finales (Uso de CPU, tiempo de espera, respuesta, fragmentación máxima, etc.) y genera un documento PDF estructurado de rigor académico.
