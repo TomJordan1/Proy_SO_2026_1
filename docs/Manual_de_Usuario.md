@@ -5,7 +5,9 @@ Este manual explica cómo configurar y usar la interfaz gráfica (GUI) del simul
 ## 1. Configuración Inicial
 Al ejecutar la aplicación (`python main.py`), aparecerá una ventana de configuración con cinco pestañas:
 1. **CPU**: Permite elegir el número de núcleos, el algoritmo de planificación (FCFS, SJF, SRTF, RR, Prioridades, MLFQ), el quantum y el costo por cambio de contexto.
-2. **Memoria**: Permite definir el tamaño total de la memoria RAM, el espacio reservado para el SO, el tamaño mínimo del segmento y la estrategia de asignación (First Fit, Best Fit, Worst Fit).
+2. **Memoria**: Permite configurar el modelo de memoria del sistema:
+   - **Modo Contiguo**: Define el tamaño de la RAM, reservas del SO y estrategia de asignación (First Fit, Best Fit, Worst Fit).
+   - **Modo Paginado (Memoria Virtual)**: Si se habilita esta casilla, la memoria se divide en páginas de 4KB. Podrás configurar el tipo de Tabla de Páginas (Simple, Dos Niveles, Inversa, Hashed), elegir entre 9 algoritmos de reemplazo de páginas (ej. LRU, Clock, NRU), definir el tamaño de la memoria secundaria (Swap en HDD/SSD) y establecer la cantidad de entradas de la caché TLB.
 3. **Dispositivos**: Permite ajustar la latencia (en ticks) de cada dispositivo de E/S.
 4. **Simulación**: Permite configurar la velocidad de reproducción, la probabilidad de errores, el multiplicador de E/S y el envejecimiento (aging).
 5. **Procesos**: Permite añadir procesos manualmente o importar los procesos reales en ejecución usando `psutil`.
@@ -23,10 +25,10 @@ La barra superior de la ventana principal incluye los siguientes controles:
 ## 3. Interfaz Principal
 La pantalla principal se divide en varias áreas:
 - **CPU Cores**: Muestra el estado de cada núcleo (IDLE, RUNNING o SWITCHING), el proceso en ejecución, el progreso del quantum y el valor del Program Counter (PC).
-- **Colas de Listos**: Muestra los procesos en estado de listos, asignados a cada núcleo.
-- **Cola de Bloqueados**: Muestra los procesos que están esperando por E/S.
+- **Colas de Listos y Bloqueados**: Muestra los procesos en espera por procesador o por periféricos.
 - **Tabla PCB**: Tabla con los datos del Bloque de Control de Proceso de todos los programas.
-- **Mapa de Memoria**: Gráfico que representa el uso y los segmentos de la RAM.
-- **Dispositivos E/S**: Muestra el estado y progreso de cada periférico simulado. Incluye botones interactivos para confirmar o cancelar acciones cuando un dispositivo requiere intervención (como el teclado).
-- **Métricas**: Indicadores numéricos sobre el rendimiento de la CPU, tiempos de espera y respuestas.
+- **Mapa de Memoria (RAM y Swap)**: Gráfico que representa el uso de la memoria física. Si el modo paginado está activo, verás una cuadrícula de Marcos (Frames) de 4KB y un visor adicional del almacenamiento Swap.
+- **Lupa de Memoria Virtual**: En modo paginado, podrás hacer clic en el ícono de inspección de memoria para ver en tiempo real el contenido de la TLB, la Tabla de Páginas de cada proceso (con sus bits de Validez, Referencia y Modificación) y el uso detallado del Swap.
+- **Dispositivos E/S**: Muestra el estado de cada periférico simulado. Incluye botones interactivos para confirmar o cancelar acciones cuando un dispositivo requiere intervención (como el teclado).
+- **Métricas**: Indicadores numéricos sobre el rendimiento de la CPU, tiempos de espera, fragmentación, fallos de página (Page Faults) y hits en TLB.
 - **Timeline**: Un Diagrama de Gantt que muestra el uso de los núcleos en el tiempo.
