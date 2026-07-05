@@ -49,6 +49,7 @@ Si deseas usar solo el backend, puedes ejecutar la simulación desde la terminal
 - `-i <archivo>`: Ruta del archivo JSON de configuración y entrada.
 - `-o <archivo>`: Ruta del archivo JSON donde se guardarán los resultados.
 - `-t <ticks>`: Cantidad máxima de ticks a ejecutar antes de detener el simulador por seguridad.
+- `-b, --batch`: Habilita el modo batch desatendido, auto-resolviendo operaciones E/S interactivas.
 - `-h`: Muestra el menú de ayuda.
 
 ## 6. Ejecución con la Interfaz Gráfica (Frontend)
@@ -69,9 +70,4 @@ python main.py
 ```
 Aparecerá el menú de configuración principal (donde puedes elegir entre memoria contigua o memoria virtual), desde el cual la interfaz se encargará de invocar al ejecutable C++ automáticamente en segundo plano.
 
-## 7. Pruebas y Benchmarking Automatizado
-Si quieres realizar un análisis de rendimiento comparando algoritmos (FCFS, SJF, RR, Priority) y estrategias de memoria sin abrir la interfaz gráfica, usa el script de benchmarking en la raíz del proyecto:
-```bash
-python run_benchmark.py
-```
-Este script configurará temporalmente los archivos JSON, ejecutará el motor en segundo plano y te mostrará tablas con métricas (como uso de CPU, tiempos de espera promedio y fragmentación máxima) en tu consola.
+
