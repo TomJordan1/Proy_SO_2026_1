@@ -70,7 +70,7 @@ python main.py
 Aparecerá el menú de configuración principal (donde puedes elegir entre memoria contigua o memoria virtual), desde el cual la interfaz se encargará de invocar al ejecutable C++ automáticamente en segundo plano.
 
 ## 7. Pruebas y Benchmarking Automatizado
-Si quieres realizar un análisis de rendimiento comparando algoritmos (FCFS, SJF, SRTF, RR, Priority) y estrategias de memoria sin abrir la interfaz gráfica, usa el script de benchmarking en la raíz del proyecto:
+Si quieres realizar un análisis de rendimiento comparando algoritmos (FCFS, SJF, RR, Priority) y estrategias de memoria sin abrir la interfaz gráfica, usa el script de benchmarking en la raíz del proyecto:
 ```bash
 python run_benchmark.py
 ```

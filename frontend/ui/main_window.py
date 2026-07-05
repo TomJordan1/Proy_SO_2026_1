@@ -977,34 +977,91 @@ class MainWindow(QMainWindow):
                     p["burst_time"] = random.randint(5, 15)
                     base_scenario["processes"].append(p)
         
+        schedulers = ["FCFS", "SJF", "RR", "Priority"]
         strategies = ["FIRST_FIT", "BEST_FIT", "WORST_FIT"]
-        results = {}
         
-        progress = QProgressDialog("Corriendo Benchmark de Asignación de Memoria...", "Cancelar", 0, len(strategies), self)
+        results_cpu = {}
+        results_mem = {}
+        
+        progress = QProgressDialog("Corriendo Benchmarks Académicos...", "Cancelar", 0, len(schedulers) + len(strategies), self)
         progress.setWindowTitle("Generando Reporte")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.show()
         
-        for idx, strategy in enumerate(strategies):
-            if progress.wasCanceled():
-                return
-            progress.setLabelText(f"Evaluando estrategia {strategy}...")
-            progress.setValue(idx)
+        current_step = 0
+        
+        # --- 1. Benchmark de CPU ---
+        base_mem_strategy = base_scenario.get("hardware", {}).get("memory", {}).get("allocationStrategy", "FIRST_FIT")
+        for algo in schedulers:
+            if progress.wasCanceled(): return
+            progress.setLabelText(f"Evaluando algoritmo CPU {algo}...")
+            progress.setValue(current_step)
+            current_step += 1
             
             scenario = copy.deepcopy(base_scenario)
+            scenario["hardware"]["cpu"]["scheduler"] = algo
+            scenario["hardware"]["memory"]["allocationStrategy"] = base_mem_strategy
+            
+            # Disable manual interactive events
+            scenario["events"] = []
+            
+            temp_input = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_input_{algo}.json")
+            temp_output = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_output_{algo}.json")
+            with open(temp_input, "w", encoding="utf-8") as f:
+                json.dump(scenario, f, indent=2)
+            
+            try:
+                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"], cwd=BACKEND_DIR)
+                while process.poll() is None:
+                    QCoreApplication.processEvents()
+                    time.sleep(0.05)
+            except Exception as e:
+                QMessageBox.critical(self, "Error de Backend", f"Fallo al ejecutar {algo}:\n{e}")
+                progress.close()
+                return
+            
+            if os.path.exists(temp_output):
+                with open(temp_output, "r", encoding="utf-8") as f:
+                    try:
+                        output_data = json.load(f)
+                        if output_data and "ticks" in output_data:
+                            ticks_data = output_data["ticks"]
+                            last_snap = None
+                            for frame in reversed(ticks_data):
+                                if frame.get("type") == "snapshot":
+                                    last_snap = frame.get("state", frame)
+                                    break
+                                elif "type" not in frame:
+                                    last_snap = frame
+                                    break
+                            if last_snap and "metrics" in last_snap:
+                                results_cpu[algo] = dict(last_snap["metrics"])
+                    except: pass
+            try:
+                os.remove(temp_input)
+                os.remove(temp_output)
+            except: pass
+            
+        # --- 2. Benchmark de Memoria ---
+        base_cpu_algo = base_scenario.get("hardware", {}).get("cpu", {}).get("scheduler", "RR")
+        for strategy in strategies:
+            if progress.wasCanceled(): return
+            progress.setLabelText(f"Evaluando estrategia Memoria {strategy}...")
+            progress.setValue(current_step)
+            current_step += 1
+            
+            scenario = copy.deepcopy(base_scenario)
+            scenario["hardware"]["cpu"]["scheduler"] = base_cpu_algo
             scenario["hardware"]["memory"]["allocationStrategy"] = strategy
+            scenario["events"] = []
             
             temp_input = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_input_{strategy}.json")
             temp_output = os.path.join(os.path.dirname(ESCENARIO_PATH), f"temp_output_{strategy}.json")
-            
             with open(temp_input, "w", encoding="utf-8") as f:
                 json.dump(scenario, f, indent=2)
                 
             try:
-                process = subprocess.Popen(
-                    [SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"],
-                    cwd=BACKEND_DIR
-                )
+                process = subprocess.Popen([SIMULATOR_EXE, "-i", temp_input, "-o", temp_output, "-t", "50000"], cwd=BACKEND_DIR)
                 while process.poll() is None:
                     QCoreApplication.processEvents()
                     time.sleep(0.05)
@@ -1024,96 +1081,115 @@ class MainWindow(QMainWindow):
                                 if frame.get("type") == "snapshot":
                                     last_snap = frame.get("state", frame)
                                     break
-                                elif "type" not in frame: # legacy
+                                elif "type" not in frame:
                                     last_snap = frame
                                     break
                             if last_snap and "metrics" in last_snap:
                                 res_dict = dict(last_snap["metrics"])
                                 if "memory" in last_snap and "stats" in last_snap["memory"]:
                                     res_dict.update(last_snap["memory"]["stats"])
-                                res_dict["total_ticks"] = frame.get("tick", last_snap.get("tick", 0))
-                                results[strategy] = res_dict
-                    except:
-                        pass
-                        
+                                results_mem[strategy] = res_dict
+                    except: pass
             try:
                 os.remove(temp_input)
                 os.remove(temp_output)
-            except:
-                pass
-                
-        progress.setValue(len(strategies))
+            except: pass
+            
+        progress.setValue(current_step)
         progress.close()
         
-        # ── Escribir el reporte en PDF usando QTextDocument ──
+        # ── Escribir el reporte en PDF ──
         try:
             from PySide6.QtGui import QTextDocument, QPdfWriter
             
-            html = "<h1>Memory Allocation Strategies Benchmark Report</h1>"
+            html = "<h1>Reporte de Simulaci&oacute;n: Benchmarks de Rendimiento</h1>"
+            
             if original_mode == "PAGED":
                 html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
-                html += "<b>NOTA:</b> El escenario base actualmente cargado usaba <b>Memoria Paginada (PAGED)</b>. "
-                html += "Para realizar esta comparativa de estrategias de asignación, el benchmark forzó internamente el modo a <b>CONTIGUA</b> en estas corridas.</p>"
-            else:
-                html += "<p style='background-color:#ffeeba; padding:10px; border-left:4px solid #ffc107;'>"
-                html += f"<b>NOTA:</b> El escenario cargado usaba memoria {original_mode}. El reporte compara las 3 estrategias de asignación contigua.</p>"
+                html += "<b>NOTA:</b> El escenario base usaba <b>Memoria Paginada</b>. Para estas pruebas, se forzó internamente a <b>CONTIGUA</b>.</p>"
+            
+            # --- 6.1 Resultados CPU ---
+            html += "<h2>6.1 Resultados de Pol&iacute;ticas de Planificaci&oacute;n de CPU</h2>"
+            html += f"<p>Se evaluaron los 4 algoritmos de planificaci&oacute;n manteniendo fija la estrategia de memoria ({base_mem_strategy}) y desactivando los eventos manuales para permitir una ejecuci&oacute;n ininterrumpida.</p>"
+            html += "<b>Tabla 12</b><br><i>M&eacute;tricas obtenidas de los algoritmos de planificaci&oacute;n implementados</i><br>"
+            html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Algoritmo</th><th>Uso de CPU (%)</th><th>T. Espera Promedio</th><th>T. Respuesta Promedio</th><th>T. Retorno Promedio</th></tr>"
+            
+            best_turnaround = float('inf')
+            best_turn_algo = ""
+            best_wait = float('inf')
+            best_wait_algo = ""
+            best_resp = float('inf')
+            best_resp_algo = ""
+            best_cpu = -1.0
+            best_cpu_algo = ""
+            
+            for algo in schedulers:
+                m = results_cpu.get(algo)
+                if not m:
+                    html += f"<tr><td>{algo}</td><td colspan='4'>N/A</td></tr>"
+                    continue
+                cpu_use = m.get("cpu_utilization_percent", 0.0)
+                wait_t = m.get("avg_waiting_time", 0.0)
+                resp_t = m.get("avg_response_time", 0.0)
+                turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
                 
-            html += "<p>Este reporte compara el rendimiento (<i>performance</i>) y fraccionamiento de memoria utilizando las tres estrategias de asignación contigua: <b>FIRST_FIT</b>, <b>BEST_FIT</b>, y <b>WORST_FIT</b>.</p>"
+                html += f"<tr><td>{algo}</td><td>{cpu_use:.2f}</td><td>{wait_t:.2f}</td><td>{resp_t:.2f}</td><td>{turn_t:.2f}</td></tr>"
+                
+                if turn_t < best_turnaround and turn_t > 0: best_turnaround = turn_t; best_turn_algo = algo
+                if wait_t < best_wait and wait_t > 0: best_wait = wait_t; best_wait_algo = algo
+                if resp_t < best_resp and resp_t > 0: best_resp = resp_t; best_resp_algo = algo
+                if cpu_use > best_cpu: best_cpu = cpu_use; best_cpu_algo = algo
+                
+            html += "</table><p><i>Nota. Elaboraci&oacute;n propia.</i></p>"
             
-            # --- Inyectar la configuración del entorno ---
-            cores = len(base_scenario.get("hardware", {}).get("cpu", {}).get("cores", [1]))
-            algo = base_scenario.get("hardware", {}).get("cpu", {}).get("scheduler", "FCFS")
-            ram = base_scenario.get("hardware", {}).get("memory", {}).get("totalMB", 0)
-            n_procs = len(base_scenario.get("processes", []))
+            html += "<b>An&aacute;lisis de m&eacute;tricas de CPU:</b><br>"
+            html += f"<p><b>{best_turn_algo}</b> demostr&oacute; ser el algoritmo m&aacute;s eficiente de manera global al obtener el menor Tiempo de Retorno Promedio ({best_turnaround:.2f}). "
+            html += f"En t&eacute;rminos de interactividad, <b>{best_resp_algo}</b> logr&oacute; el mejor Tiempo de Respuesta Promedio ({best_resp:.2f}), "
+            html += f"mientras que <b>{best_wait_algo}</b> minimiz&oacute; el Tiempo de Espera Promedio ({best_wait:.2f}). "
+            html += f"El mayor aprovechamiento del procesador lo logr&oacute; <b>{best_cpu_algo}</b> con un {best_cpu:.2f}% de Uso de CPU.</p>"
             
-            html += "<h2>Configuración de Simulación</h2>"
-            html += "<ul>"
-            html += f"<li><b>CPU:</b> {cores} Núcleo(s), Algoritmo: {algo}</li>"
-            html += f"<li><b>Memoria:</b> {ram} MB Totales, Modo: Contiguo</li>"
-            html += f"<li><b>Carga:</b> {n_procs} Procesos evaluados</li>"
-            html += "</ul>"
+            # --- 6.2 Resultados Memoria ---
+            html += "<h2>6.2 Resultados de Estrategias de Memoria</h2>"
+            html += f"<p>Manteniendo el algoritmo de CPU en {base_cpu_algo}, se evaluaron las tres estrategias de asignaci&oacute;n para la carga de procesos. El sistema se configur&oacute; con {base_scenario.get('hardware', {}).get('memory', {}).get('totalMB', 1024)} MB totales.</p>"
+            html += "<b>Tabla 13</b><br><i>M&eacute;tricas obtenidas de las estrategias de memoria implementadas</i><br>"
+            html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse; margin-bottom: 10px;'>"
+            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Uso de CPU (%)</th><th>Fragmentaci&oacute;n Max (%)</th><th>T. Retorno Promedio</th></tr>"
             
-            html += "<h2>Resultados</h2>"
-            html += "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;'>"
-            html += "<tr style='background-color:#f2f2f2;'><th>Estrategia</th><th>Fragmentación Externa</th><th>Total Ticks</th><th>Context Switches</th><th>Avg Turnaround</th><th>Avg Waiting</th><th>Avg Response</th></tr>"
-            
-            best_frag_val = float('inf')
+            best_frag = float('inf')
             best_frag_strat = ""
-            best_perf_val = float('inf')
-            best_perf_strat = ""
+            identical_results = True
+            first_frag = -1
             
             for strategy in strategies:
-                m = results.get(strategy)
+                m = results_mem.get(strategy)
                 if not m:
-                    html += f"<tr><td>{strategy}</td><td colspan='5'>N/A</td></tr>"
+                    html += f"<tr><td>{strategy}</td><td colspan='3'>N/A</td></tr>"
                     continue
-                    
-                ext_frag = m.get("fragmentation_percent", 0.0)
-                tot_ticks = m.get("total_ticks", 0)
-                ctx_sw = m.get("context_switches", 0)
-                avg_turn = m.get("avg_turnaround", m.get("avg_turnaround_time", 0))
-                avg_wait = m.get("avg_waiting_time", 0)
-                avg_resp = m.get("avg_response_time", 0)
+                cpu_use = m.get("cpu_utilization_percent", 0.0)
+                frag = m.get("fragmentation_percent", 0.0)
+                turn_t = m.get("avg_turnaround", m.get("avg_turnaround_time", 0.0))
                 
-                html += f"<tr><td>{strategy}</td><td>{ext_frag:.1f}%</td><td>{tot_ticks}</td><td>{ctx_sw}</td><td>{avg_turn:.2f}</td><td>{avg_wait:.2f}</td><td>{avg_resp:.2f}</td></tr>"
+                html += f"<tr><td>{strategy}</td><td>{cpu_use:.2f}</td><td>{frag:.2f}</td><td>{turn_t:.2f}</td></tr>"
                 
-                if ext_frag < best_frag_val:
-                    best_frag_val = ext_frag
+                if first_frag == -1: first_frag = frag
+                elif abs(frag - first_frag) > 0.1: identical_results = False
+                
+                if frag < best_frag:
+                    best_frag = frag
                     best_frag_strat = strategy
-                    
-                if avg_turn < best_perf_val:
-                    best_perf_val = avg_turn
-                    best_perf_strat = strategy
-                    
-            html += "</table>"
             
-            html += "<h2>Conclusiones</h2><ul>"
-            if best_frag_strat:
-                html += f"<li><b>Optimización de Fraccionamiento:</b> La estrategia <b>{best_frag_strat}</b> resultó ser la más eficiente, presentando una menor fragmentación externa.</li>"
-            if best_perf_strat:
-                html += f"<li><b>Rendimiento (Performance):</b> La estrategia <b>{best_perf_strat}</b> demostró ser la más eficiente en términos de rendimiento (menor Turnaround promedio), al asignar más rápido la memoria.</li>"
-            html += "</ul>"
+            html += "</table><p><i>Nota. Elaboraci&oacute;n propia.</i></p>"
+            html += "<b>An&aacute;lisis de m&eacute;tricas de Memoria:</b><br>"
             
+            if identical_results:
+                html += "<p>Debido a que el escenario contaba con una configuraci&oacute;n donde todas las estrategias lograron satisfacer las peticiones de manera similar, "
+                html += "el rendimiento general y el pico de fragmentaci&oacute;n resultaron id&eacute;nticos en las pruebas. "
+                html += f"El mecanismo de coalescing logr&oacute; mitigar el desperdicio manteniendo la fragmentaci&oacute;n en {best_frag:.2f}%.</p>"
+            else:
+                html += f"<p>La estrategia <b>{best_frag_strat}</b> result&oacute; ser la m&aacute;s eficiente para este conjunto de procesos, logrando el menor pico de fragmentaci&oacute;n externa ({best_frag:.2f}%). "
+                html += "Esto demuestra su capacidad superior para aprovechar los huecos libres frente a la carga dada.</p>"
+
             # Generar PDF
             doc = QTextDocument()
             doc.setHtml(html)
@@ -1122,7 +1198,7 @@ class MainWindow(QMainWindow):
             pdf_writer.setResolution(150)
             doc.print_(pdf_writer)
             
-            QMessageBox.information(self, "Reporte Exportado", f"El Benchmark de Memoria fue exportado a PDF exitosamente en:\n{filepath}")
+            QMessageBox.information(self, "Reporte Exportado", f"El Reporte fue exportado a PDF exitosamente en:\n{filepath}")
         except Exception as e:
             QMessageBox.critical(self, "Error al Guardar", f"No se pudo guardar el reporte:\n{e}")
 
