@@ -28,9 +28,10 @@ backend/
     └── types.hpp                  # Enumeradores y tipos de datos base
 ```
 
-### Script de Utilidad
+### Scripts de Utilidad
 ```text
 compilar_backend.bat               # Script para Windows que automatiza la compilación C++23 del backend
+iniciar_patatos.bat                # Lanzador principal automático que verifica dependencias y ejecuta el GUI
 run_benchmark.py                   # Herramienta para simulaciones en bloque ("headless")
 ```
 

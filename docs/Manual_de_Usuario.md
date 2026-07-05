@@ -3,7 +3,7 @@
 Este manual explica cómo configurar y usar la interfaz gráfica (GUI) del simulador PatatOS.
 
 ## 1. Configuración Inicial
-Al ejecutar la aplicación (`python main.py`), aparecerá una ventana de configuración con cinco pestañas:
+Al ejecutar la aplicación (mediante un doble clic en `iniciar_patatos.bat` o corriendo `python main.py`), aparecerá una ventana de configuración con cinco pestañas:
 1. **CPU**: Permite elegir el número de núcleos, el algoritmo de planificación (FCFS, SJF, SRTF, RR, Prioridades, MLFQ), el quantum y el costo por cambio de contexto.
 2. **Memoria**: Permite configurar el modelo de memoria del sistema:
    - **Modo Contiguo**: Define el tamaño de la RAM, reservas del SO y estrategia de asignación (First Fit, Best Fit, Worst Fit).

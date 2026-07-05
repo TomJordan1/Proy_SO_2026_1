@@ -22,6 +22,7 @@ Proy_SO_2026_1/
 ├── backend/                     # Motor de la lógica interna hecho en C++
 ├── docs/                        # Documentación adicional, informes o manuales del proyecto
 ├── frontend/                    # Constructor del input y del GUI hecho en Python
+├── iniciar_patatos.bat          # Lanzador automático (instala dependencias y compila si es necesario)
 ├── run_benchmark.py             # Script para ejecutar simulaciones y benchmarks sin interfaz gráfica
 └── shared_data/                 # Archivos input.json y output.json que unen el frontend y el backend
 ```

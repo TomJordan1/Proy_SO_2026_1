@@ -52,7 +52,17 @@ Si deseas usar solo el backend, puedes ejecutar la simulación desde la terminal
 - `-h`: Muestra el menú de ayuda.
 
 ## 6. Ejecución con la Interfaz Gráfica (Frontend)
-Para ejecutar el simulador completo con su interfaz de usuario, abre una terminal en la raíz del proyecto y ejecuta:
+Para iniciar el simulador completo con su interfaz de usuario, la manera recomendada y automática (en Windows) es hacer doble clic en el lanzador ubicado en la raíz del proyecto:
+```text
+iniciar_patatos.bat
+```
+Este script se encargará automáticamente de:
+1. Verificar que Python esté instalado.
+2. Instalar o verificar las dependencias (`PySide6`, `psutil`) requeridas.
+3. Compilar automáticamente el motor C++ si aún no existe.
+4. Ejecutar la interfaz gráfica.
+
+Si estás en otro sistema operativo o prefieres hacerlo manualmente, abre una terminal y ejecuta:
 ```bash
 cd frontend
 python main.py
